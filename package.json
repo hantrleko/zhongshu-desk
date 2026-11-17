@@ -1,0 +1,29 @@
+{
+  "name": "zhongshu-desk",
+  "private": true,
+  "version": "1.0.1",
+  "description": "中枢台 Zhongshu Desk — a Chan Theory chart desk centered on the hub.",
+  "license": "MIT",
+  "author": "Han Yuchen",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 47321",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 47321",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lightweight-charts": "^5.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.73.0",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}
