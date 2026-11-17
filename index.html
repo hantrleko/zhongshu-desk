@@ -44,10 +44,11 @@
       <section class="stage" aria-label="Chart">
         <div class="toolbar">
           <div>
-            <h2 id="study-title"></h2>
+            <h2 id="study-heading"><span id="study-title"></span><span id="study-kind"></span></h2>
             <p id="study-blurb"></p>
           </div>
         </div>
+        <div id="provenance" class="provenance" role="status"></div>
         <div class="chart-chrome">
           <div class="chip-row" role="group" aria-labelledby="tf-label">
             <span id="tf-label" class="chip-label" data-i18n="tfGroup">周期</span>
@@ -72,9 +73,13 @@
             <button type="button" class="chip" id="level-bi" aria-pressed="true">笔级</button>
             <button type="button" class="chip" id="level-seg" aria-pressed="false">段级</button>
           </div>
+          <details id="glossary" class="glossary">
+            <summary id="glossary-summary"></summary>
+            <div id="glossary-body"></div>
+          </details>
         </div>
-        <p id="source-line"></p>
         <p id="level-note"></p>
+        <div id="structure-gap" class="structure-gap" hidden></div>
         <div class="chart-stage">
           <div id="banner" role="status" hidden></div>
           <div id="chart" role="group"></div>

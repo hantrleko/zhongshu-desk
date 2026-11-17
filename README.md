@@ -60,7 +60,7 @@ VITE_BASE=/your-repo/ npm run build
 
 这三套都还没有段中枢。样例一和样例二各有一段未完成的线段，图上是虚线。线段的结束和缺口规则在 `tests/segment.test.ts` 里用手写的笔序列核对。
 
-选「周线」时，日线按 UTC 自然周收成一根。结构会变。这是级别变了，不是另一套行情。5m、15m、30m、1h 这些芯片在样例上不会拆出更细的价格，图上仍是日线。
+选「周线」时，日线按 UTC 自然周收成一根。以现在的三套课例，周线不够形成笔和中枢，页面写明有多少根、至少要几笔，以及为什么不画，而不是留一块空白。这是级别变了，不是另一套行情。5m、15m、30m、1h 这些芯片在样例上不会拆出更细的价格，图上仍是日线，旁边的来源说明会写出来。
 
 图上的开关默认打开笔、线段、中枢和买卖点。买卖点是小号数字。全隐只藏这些图层，K 线还在。侧栏的缠论状态写出最后一笔、最后一段，以及现价相对当前中枢在上、在内或在下。最后一笔标成未确认，因为它还可以延伸。
 
@@ -68,7 +68,7 @@ VITE_BASE=/your-repo/ npm run build
 
 标的里的 AAPL、MSFT、0700.HK，或自己填的代码，会由浏览器直接请求 Yahoo Finance 的图表接口。Yahoo 失败再试 Stooq 的日线 CSV。没有密钥。
 
-静态页面经常被跨域拦住。超时、空表、HTTP 错误都会写在图上，然后回到当前样例。不完整的 K 线直接丢掉，不改写，也不补价格。
+静态页面经常被跨域拦住。超时、空表、HTTP 错误都会写在图旁，然后回到当前课例。标题用课例的名字，不写成刚才请求的代码。同一块说明写下来源、K 线区间、最新一根，以及上次读取是成功还是失败。失败不是实时行情。课例价格标成教学价格。不完整的 K 线直接丢掉，不改写，也不补价格。
 
 不承诺沪深 A 股。Stooq 只映射普通美股代码和 `.HK`。时间戳保持来源原样，不换算成交易所时区。
 
@@ -151,7 +151,7 @@ The three daily series live in `src/data/fixtures.ts`. The turn prices are writt
 
 None of the three lessons produces a segment hub. Lessons 1 and 2 each have one unfinished segment, drawn dashed. The segment ending rule and the gap rule are checked on hand-built strokes in `tests/segment.test.ts`.
 
-Weekly view folds the daily bars by UTC week. The structure can change. That is a change of level, not a second quote. The 5m, 15m, 30m, and 1h chips do not invent finer prices on a lesson. The chart stays daily.
+Weekly view folds the daily bars by UTC week. On the three lessons shipped now, that aggregate is too short for a stroke or a hub. The page says how many bars there are, what the minimum is, and why nothing is drawn, instead of leaving the overlay blank. That is a change of level, not a second quote. The 5m, 15m, 30m, and 1h chips do not invent finer prices on a lesson. The chart stays daily, and the source line says so.
 
 Layer switches default to strokes, segments, hubs, and buy/sell labels. The labels are small numbers. Hide-all removes those layers and leaves the candles. The Chan state panel shows the last stroke, the last segment, and whether the latest close is above, inside, or below the current hub. The last stroke is marked unconfirmed because it can still extend.
 
@@ -159,7 +159,7 @@ Layer switches default to strokes, segments, hubs, and buy/sell labels. The labe
 
 AAPL, MSFT, 0700.HK, or a symbol typed into the box, are requested by the browser from the Yahoo Finance chart endpoint. If Yahoo fails, Stooq daily CSV is tried. There is no API key.
 
-A static page is often stopped by CORS. A timeout, an empty table, or an HTTP error is written on the chart, and the lesson comes back. Incomplete bars are dropped. They are not rewritten, and no price is filled in.
+A static page is often stopped by CORS. A timeout, an empty table, or an HTTP error is written beside the chart, and the lesson comes back. The title stays the lesson name. It is not rewritten as the symbol that was just requested. The same note records the source, the bar range, the latest bar, and whether the last fetch succeeded or failed. A failure is not a live quote. Lesson prices are marked as teaching prices. Incomplete bars are dropped. They are not rewritten, and no price is filled in.
 
 China A-shares are not a promised source. Stooq is mapped only for plain US tickers and `.HK`. Timestamps are kept as the source sent them.
 

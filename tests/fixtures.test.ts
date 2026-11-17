@@ -77,6 +77,18 @@ describe('fixtures', () => {
     expect(() => analyze(weekly)).not.toThrow();
   });
 
+  it('does not invent strokes or hubs when the current lessons are folded into weeks', () => {
+    for (const fixture of fixtures) {
+      const weekly = analyze(resampleWeekly(fixture.bars));
+      expect(weekly.bi).toEqual([]);
+      expect(weekly.segments).toEqual([]);
+      expect(weekly.biHubs).toEqual([]);
+      expect(weekly.segmentHubs).toEqual([]);
+      expect(weekly.biMarks).toEqual([]);
+      expect(weekly.segmentMarks).toEqual([]);
+    }
+  });
+
   it('is stable when run twice', () => {
     const fixture = fixtures[0];
     expect(analyze(fixture.bars)).toEqual(analyze(fixture.bars));
