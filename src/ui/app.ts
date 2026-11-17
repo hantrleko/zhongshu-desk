@@ -1,18 +1,23 @@
 import { DeskChart } from '../chart/desk-chart.ts';
 import type { ChartLabels } from '../chart/hub-primitive.ts';
-import { applyTimeframe, isIntraday, type Timeframe } from '../data/resample.ts';
+import { applyTimeframe, type Timeframe } from '../data/resample.ts';
 import { fixtureById, fixtures, type Fixture } from '../data/fixtures.ts';
 import { fetchPublicQuote, QuoteError } from '../data/quote.ts';
+import {
+  acceptQuote,
+  chooseLesson,
+  initialSession,
+  noteEmptySymbol,
+  rejectQuote,
+  requestQuote,
+  type Session,
+} from '../desk/session.ts';
+import { presentProvenance, presentStructureGap, segmentConfirmation, strokeConfirmation, type StructureGapModel } from '../desk/present.ts';
 import { analyze } from '../engine/analyze.ts';
 import { priceBand } from '../engine/readout.ts';
 import type { Analysis, Bar, Hub, HubLevel, Mark } from '../engine/types.ts';
 import { formatDay, formatPrice } from '../format.ts';
-import { copy, type Lang } from '../i18n.ts';
-
-interface LiveSource {
-  symbol: string;
-  source: 'yahoo' | 'stooq';
-}
+import { copy, type GlossaryEntry, type Lang } from '../i18n.ts';
 
 const LIVE_PRESETS = ['AAPL', 'MSFT', '0700.HK'];
 
@@ -41,9 +46,15 @@ export function startDesk(): void {
   const methodsBody = must<HTMLElement>('methods-body');
   const chartHost = must<HTMLElement>('chart');
   const banner = must<HTMLElement>('banner');
+  const studyHeading = must<HTMLElement>('study-heading');
   const studyTitle = must<HTMLElement>('study-title');
+  const studyKind = must<HTMLElement>('study-kind');
   const studyBlurb = must<HTMLElement>('study-blurb');
-  const sourceLine = must<HTMLElement>('source-line');
+  const provenance = must<HTMLElement>('provenance');
+  const structureGap = must<HTMLElement>('structure-gap');
+  const glossary = must<HTMLDetailsElement>('glossary');
+  const glossarySummary = must<HTMLElement>('glossary-summary');
+  const glossaryBody = must<HTMLElement>('glossary-body');
   const levelNote = must<HTMLElement>('level-note');
   const structureCount = must<HTMLElement>('structure-count');
   const levelBi = must<HTMLButtonElement>('level-bi');
@@ -64,8 +75,7 @@ export function startDesk(): void {
   const stage = must<HTMLElement>('chart').closest('section');
 
   let lang: Lang = 'zh';
-  let fixtureId = fixtures[0].id;
-  let live: LiveSource | null = null;
+  let session: Session = initialSession(fixtures[0].id);
   let timeframe: Timeframe = 'D';
   let level: HubLevel = 'bi';
   let layers = { bi: true, seg: true, zs: true, bsp: true };
@@ -96,12 +106,12 @@ export function startDesk(): void {
     return level === 'bi' ? analysis.biMarks : analysis.segmentMarks;
   }
 
-  function timeframeLabel(): string {
-    return timeframe;
+  function currentFixture(): Fixture {
+    return fixtureById(session.fixtureId) ?? fixtures[0];
   }
 
-  function currentFixture(): Fixture {
-    return fixtureById(fixtureId) ?? fixtures[0];
+  function gloss(id: GlossaryEntry['id']): GlossaryEntry | undefined {
+    return text().glossaryEntries.find((entry) => entry.id === id);
   }
 
   function labels(): ChartLabels {
@@ -122,7 +132,8 @@ export function startDesk(): void {
     }
     const quotes = document.createElement('optgroup');
     quotes.label = lang === 'zh' ? '公开行情' : 'Public quote';
-    const liveSymbols = live && !LIVE_PRESETS.includes(live.symbol) ? [...LIVE_PRESETS, live.symbol] : LIVE_PRESETS;
+    const shownSymbol = session.quote?.symbol;
+    const liveSymbols = shownSymbol && !LIVE_PRESETS.includes(shownSymbol) ? [...LIVE_PRESETS, shownSymbol] : LIVE_PRESETS;
     for (const symbol of liveSymbols) {
       const option = document.createElement('option');
       option.value = `live:${symbol}`;
@@ -130,10 +141,54 @@ export function startDesk(): void {
       quotes.append(option);
     }
     symbolSelect.append(lessons, quotes);
-    const desired = live ? `live:${live.symbol}` : `fixture:${fixtureId}`;
+    const desired = session.quote ? `live:${session.quote.symbol}` : `fixture:${session.fixtureId}`;
     const hasDesired = Array.from(symbolSelect.options).some((option) => option.value === desired);
     symbolSelect.value = hasDesired ? desired : previous;
-    if (symbolSelect.value === '') symbolSelect.value = `fixture:${fixtureId}`;
+    if (symbolSelect.value === '') symbolSelect.value = `fixture:${session.fixtureId}`;
+  }
+
+  function glossaryBlock(idPrefix: string | null): HTMLElement {
+    const ui = text();
+    const host = document.createElement('div');
+    const list = document.createElement('dl');
+    for (const entry of ui.glossaryEntries) {
+      const wrap = document.createElement('div');
+      if (idPrefix) {
+        wrap.id = `${idPrefix}-${entry.id}`;
+        wrap.tabIndex = -1;
+      }
+      const term = document.createElement('dfn');
+      term.textContent = entry.term;
+      const dt = document.createElement('dt');
+      dt.append(term);
+      wrap.append(dt, element('dd', undefined, entry.text));
+      list.append(wrap);
+    }
+    host.append(list, element('p', undefined, ui.glossaryConfirm), element('p', undefined, ui.glossarySchool));
+    return host;
+  }
+
+  function renderGlossary(): void {
+    glossarySummary.textContent = text().glossarySummary;
+    glossaryBody.replaceChildren(glossaryBlock('gloss'));
+  }
+
+  function openGlossary(id: GlossaryEntry['id']): void {
+    glossary.open = true;
+    document.getElementById(`gloss-${id}`)?.focus();
+  }
+
+  function termButton(id: GlossaryEntry['id'], label: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'term';
+    button.dataset.gloss = id;
+    button.textContent = label;
+    const entry = gloss(id);
+    if (entry) button.title = entry.text;
+    button.setAttribute('aria-describedby', `gloss-${id}`);
+    button.addEventListener('click', () => openGlossary(id));
+    return button;
   }
 
   function applyStaticCopy(): void {
@@ -163,6 +218,7 @@ export function startDesk(): void {
     link.textContent = ui.footerName;
     footerChart.replaceChildren(document.createTextNode(ui.footerBefore), link, document.createTextNode(ui.footerAfter));
     fillSymbolOptions();
+    renderGlossary();
     if (dialog.open) renderMethods();
   }
 
@@ -170,38 +226,53 @@ export function startDesk(): void {
     const ui = text();
     methodsTitle.textContent = ui.methodsTitle;
     methodsBody.replaceChildren();
+    methodsBody.append(element('h3', undefined, ui.glossarySummary), glossaryBlock(null));
     for (const section of ui.methodSections) {
       methodsBody.append(element('h3', undefined, section.heading));
       for (const paragraph of section.paragraphs) methodsBody.append(element('p', undefined, paragraph));
     }
   }
 
-  type Notice =
-    | { kind: 'none' }
-    | { kind: 'loading'; symbol: string }
-    | { kind: 'fail'; headline: 'quote' | 'bad' | 'empty' | 'raw'; reasons: string[] };
-
-  let notice: Notice = { kind: 'none' };
-
-  function renderBanner(): void {
-    const ui = text();
-    if (notice.kind === 'none') {
+  function renderBanner(lines: string[], isError: boolean): void {
+    if (lines.length === 0) {
       banner.hidden = true;
       banner.replaceChildren();
       banner.classList.remove('is-error');
       return;
     }
     banner.hidden = false;
-    banner.classList.toggle('is-error', notice.kind === 'fail');
-    const lines: string[] = [];
-    if (notice.kind === 'loading') lines.push(ui.loading(notice.symbol, timeframeLabel()));
-    if (notice.kind === 'fail') {
-      if (notice.headline === 'quote') lines.push(ui.quoteFail);
-      if (notice.headline === 'bad') lines.push(ui.badSymbol);
-      if (notice.headline === 'empty') lines.push(ui.emptySymbol);
-      lines.push(...notice.reasons);
-    }
-    banner.replaceChildren(...lines.filter(Boolean).map((line) => element('p', undefined, line)));
+    banner.classList.toggle('is-error', isError);
+    banner.replaceChildren(...lines.map((line) => element('p', undefined, line)));
+  }
+
+  function renderProvenance(): ReturnType<typeof presentProvenance> {
+    const model = presentProvenance({
+      lang,
+      session,
+      timeframe,
+      fixture: currentFixture(),
+      bars: shownBars,
+      hubCount: activeHubs().length,
+    });
+    provenance.classList.toggle('is-fallback', model.fallback);
+    provenance.classList.toggle('is-pending', model.pending);
+    provenance.dataset.shownKind = model.shownKind;
+    provenance.dataset.shownId = model.shownId;
+    provenance.dataset.fallback = model.fallback ? 'true' : 'false';
+    provenance.dataset.requested = model.requestedSymbol ?? '';
+    const lines: HTMLElement[] = [];
+    if (model.alert) lines.push(element('p', 'alert', model.alert));
+    lines.push(element('p', undefined, model.source), element('p', undefined, model.range), element('p', undefined, model.fetchStatus));
+    if (model.teachingNote) lines.push(element('p', 'teaching', model.teachingNote));
+    provenance.replaceChildren(...lines);
+    return model;
+  }
+
+  function renderGap(gap: StructureGapModel): void {
+    structureGap.hidden = !gap.show;
+    structureGap.replaceChildren();
+    if (!gap.show) return;
+    structureGap.append(element('h3', undefined, gap.title), element('p', undefined, gap.body));
   }
 
   function useBars(nextRaw: Bar[], fit: boolean): void {
@@ -210,8 +281,7 @@ export function startDesk(): void {
     try {
       analysis = analyze(shownBars);
     } catch (error) {
-      notice = { kind: 'fail', headline: 'raw', reasons: [error instanceof Error ? error.message : 'failed'] };
-      renderBanner();
+      renderBanner([error instanceof Error ? error.message : 'failed'], true);
       return;
     }
     if (selectedId && !activeHubs().some((hub) => hub.id === selectedId)) selectedId = null;
@@ -220,29 +290,21 @@ export function startDesk(): void {
   }
 
   function paint(announceSelection: boolean): void {
-    renderBanner();
     const ui = text();
-    const fixture = currentFixture();
     const hubs = activeHubs();
     const marks = activeMarks();
+    fillSymbolOptions();
+    const model = renderProvenance();
+    renderBanner(model.banner, model.fallback);
+    const gap = presentStructureGap({ lang, level, barCount: shownBars.length, analysis });
+    renderGap(gap);
     const latest = hubs[hubs.length - 1];
-    studyTitle.textContent = live ? live.symbol : fixture.title[lang];
-    studyBlurb.textContent = live
-      ? lang === 'zh'
-        ? '这是公开行情，不是样例。中枢按同一套规则现算。'
-        : 'This is a public quote, not a lesson. Hubs are computed with the same rules.'
-      : fixture.blurb[lang];
-    if (live) {
-      sourceLine.textContent = ui.sourceLive(live.source === 'yahoo' ? 'Yahoo' : 'Stooq', live.symbol, timeframeLabel());
-    } else if (isIntraday(timeframe)) {
-      sourceLine.textContent = `${ui.sourceFixtureD} ${ui.intradayNote(timeframe)}`;
-    } else if (timeframe === 'W') {
-      sourceLine.textContent = `${ui.sourceFixtureW} ${ui.weeklyNote}`;
-    } else {
-      sourceLine.textContent = ui.sourceFixtureD;
-    }
-    levelNote.textContent =
-      level === 'bi' ? ui.levelNoteBi : analysis.segmentHubs.length === 0 ? ui.levelNoteSegEmpty : ui.levelNoteSeg;
+    studyHeading.classList.toggle('is-fallback', model.fallback);
+    studyTitle.textContent = model.title;
+    studyKind.textContent = model.kindLabel;
+    studyBlurb.textContent = model.blurb;
+    levelNote.hidden = gap.show;
+    levelNote.textContent = gap.show ? '' : level === 'bi' ? ui.levelNoteBi : ui.levelNoteSeg;
     const finished = analysis.segments.filter((segment) => segment.finished).length;
     const unfinished = analysis.segments.length - finished;
     const segmentText =
@@ -261,14 +323,25 @@ export function startDesk(): void {
     for (const button of tfButtons) {
       button.setAttribute('aria-pressed', button.dataset.tf === timeframe ? 'true' : 'false');
     }
-    layerBi.setAttribute('aria-pressed', layers.bi ? 'true' : 'false');
-    layerSeg.setAttribute('aria-pressed', layers.seg ? 'true' : 'false');
-    layerZs.setAttribute('aria-pressed', layers.zs ? 'true' : 'false');
-    layerBsp.setAttribute('aria-pressed', layers.bsp ? 'true' : 'false');
+    for (const [button, id, on] of [
+      [layerBi, 'bi', layers.bi],
+      [layerSeg, 'seg', layers.seg],
+      [layerZs, 'zs', layers.zs],
+      [layerBsp, 'bsp', layers.bsp],
+    ] as const) {
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.setAttribute('aria-describedby', `gloss-${id}`);
+      const entry = gloss(id);
+      if (entry) {
+        button.textContent = entry.term;
+        button.title = entry.text;
+      }
+    }
     levelBi.setAttribute('aria-pressed', level === 'bi' ? 'true' : 'false');
     levelSeg.setAttribute('aria-pressed', level === 'segment' ? 'true' : 'false');
-    chartHost.setAttribute('aria-label', ui.chartSummary(studyTitle.textContent || '', hubs.length));
+    chartHost.setAttribute('aria-label', model.chartLabel);
     stage?.setAttribute('aria-label', lang === 'zh' ? '走势图' : 'Chart');
+    stage?.setAttribute('aria-busy', model.pending ? 'true' : 'false');
     chart.setLocale(lang === 'zh' ? 'zh-Hans' : 'en-US');
     chart.setSeries({
       bars: shownBars,
@@ -284,56 +357,69 @@ export function startDesk(): void {
       labels: labels(),
       fontFamily: getComputedStyle(document.body).fontFamily || 'sans-serif',
     });
-    renderState(latest);
-    renderList(hubs, marks);
-    if (stage) stage.setAttribute('aria-busy', 'false');
+    renderState(latest, model.teachingNote, gap.show);
+    renderList(hubs, marks, gap);
     if (announceSelection) announce();
   }
 
-  function stateRow(term: string, value: string, sub?: string): HTMLElement {
+  function stateRow(term: HTMLElement | string, value: HTMLElement | string, subs: string[] = []): HTMLElement {
     const row = element('div');
-    row.append(element('dt', undefined, term));
+    if (typeof term === 'string') row.append(element('dt', undefined, term));
+    else {
+      const dt = element('dt');
+      dt.append(term);
+      row.append(dt);
+    }
     const detail = element('dd');
-    detail.append(document.createTextNode(value));
-    if (sub) detail.append(element('span', 'sub', sub));
+    if (typeof value === 'string') detail.append(document.createTextNode(value));
+    else detail.append(value);
+    for (const sub of subs) detail.append(element('span', 'sub', sub));
     row.append(detail);
     return row;
   }
 
-  function renderState(latest: Hub | undefined): void {
+  function renderState(latest: Hub | undefined, teachingNote: string | null, gapShown: boolean): void {
     const ui = text();
     const list = document.createElement('dl');
     list.className = 'state';
     const lastBi = analysis.bi[analysis.bi.length - 1];
     const lastSeg = analysis.segments[analysis.segments.length - 1];
     const close = shownBars[shownBars.length - 1]?.close;
+    const biState = strokeConfirmation(analysis.bi.length - 1, analysis.bi.length);
     list.append(
       stateRow(
-        ui.stateBi,
-        lastBi ? `${lastBi.direction === 'up' ? ui.dirUp : ui.dirDown} · ${ui.unconfirmed}` : ui.noneStruct,
-        lastBi && analysis.bi.length > 1 ? ui.priorBi(analysis.bi.length - 1) : undefined,
+        termButton('bi', ui.stateBi),
+        lastBi ? `${lastBi.direction === 'up' ? ui.dirUp : ui.dirDown} · ${biState === 'confirmed' ? ui.confirmed : ui.unconfirmed}` : ui.noneStruct,
+        lastBi && analysis.bi.length > 1 ? [ui.priorBi(analysis.bi.length - 1)] : [],
       ),
     );
+    const segState = segmentConfirmation(lastSeg);
     list.append(
       stateRow(
-        ui.stateSeg,
+        termButton('seg', ui.stateSeg),
         lastSeg
-          ? `${lastSeg.direction === 'up' ? ui.dirUp : ui.dirDown} · ${lastSeg.finished ? ui.confirmed : ui.unconfirmed}`
+          ? `${lastSeg.direction === 'up' ? ui.dirUp : ui.dirDown} · ${segState === 'confirmed' ? ui.confirmed : ui.unconfirmed}`
           : ui.noneStruct,
       ),
     );
     if (!latest || close === undefined) {
-      list.append(stateRow(ui.stateZs, ui.noneStruct, ui.noHubBody));
+      const subs = [teachingNote, gapShown ? null : ui.noHubBody].filter((item): item is string => Boolean(item));
+      list.append(stateRow(termButton('zs', ui.stateZs), ui.noneStruct, subs));
     } else {
       const place = priceBand(close, latest.zd, latest.zg);
       const placeText = place === 'above' ? ui.priceAbove : place === 'below' ? ui.priceBelow : ui.priceInside;
-      list.append(
-        stateRow(
-          ui.stateZs,
-          `ZG ${formatPrice(latest.zg)} — ZD ${formatPrice(latest.zd)} · ${placeText}`,
-          `${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
-        ),
+      const prices = document.createElement('span');
+      prices.append(
+        termButton('zg', ui.zg),
+        document.createTextNode(` ${formatPrice(latest.zg)} — `),
+        termButton('zd', ui.zd),
+        document.createTextNode(` ${formatPrice(latest.zd)} · ${placeText}`),
       );
+      const subs = [
+        `${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
+        teachingNote,
+      ].filter((item): item is string => Boolean(item));
+      list.append(stateRow(termButton('zs', ui.stateZs), prices, subs));
     }
     const bsp = activeMarks().length;
     const counts =
@@ -345,10 +431,16 @@ export function startDesk(): void {
     callout.className = '';
   }
 
-  function renderList(hubs: Hub[], marks: Mark[]): void {
+  function renderList(hubs: Hub[], marks: Mark[], gap: StructureGapModel): void {
     const ui = text();
     const focused = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.hubId : undefined;
     hubList.replaceChildren();
+    if (hubs.length === 0 && gap.show) {
+      const empty = element('div', 'hub-empty');
+      empty.id = 'hub-empty';
+      empty.append(element('h3', undefined, gap.title), element('p', undefined, gap.body));
+      hubList.append(empty);
+    }
     hubs.forEach((hub, index) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -365,10 +457,19 @@ export function startDesk(): void {
       if (hub.id === selectedId) tags.push(ui.selected);
       if (tags.length) title.append(element('span', undefined, tags.join(' · ')));
       const prices = element('div', 'prices');
-      prices.append(element('span', 'zg', `${ui.zd} ${formatPrice(hub.zd)}`));
-      prices.append(element('span', 'zg', `${ui.zg} ${formatPrice(hub.zg)}`));
-      prices.append(element('span', undefined, `${ui.dd} ${formatPrice(hub.dd)}`));
-      prices.append(element('span', undefined, `${ui.gg} ${formatPrice(hub.gg)}`));
+      const zd = element('span', 'zg', `${ui.zd} ${formatPrice(hub.zd)}`);
+      const zg = element('span', 'zg', `${ui.zg} ${formatPrice(hub.zg)}`);
+      const dd = element('span', undefined, `${ui.dd} ${formatPrice(hub.dd)}`);
+      const gg = element('span', undefined, `${ui.gg} ${formatPrice(hub.gg)}`);
+      const zdText = gloss('zd')?.text;
+      const zgText = gloss('zg')?.text;
+      const ddText = gloss('dd')?.text;
+      const ggText = gloss('gg')?.text;
+      if (zdText) zd.title = zdText;
+      if (zgText) zg.title = zgText;
+      if (ddText) dd.title = ddText;
+      if (ggText) gg.title = ggText;
+      prices.append(zd, zg, dd, gg);
       button.append(title, prices);
       button.append(element('div', 'meta', `${formatDay(hub.startTime)} → ${formatDay(hub.endTime)}`));
       const detail = [
@@ -400,30 +501,31 @@ export function startDesk(): void {
     selectStatus.textContent = hub ? text().selectedAnnounce(formatPrice(hub.zd), formatPrice(hub.zg)) : '';
   }
 
-  async function loadLive(symbol: string): Promise<void> {
+  async function loadLive(symbol: string, requestedTf: Timeframe = timeframe): Promise<void> {
     const serial = ++requestSerial;
-    if (stage) stage.setAttribute('aria-busy', 'true');
-    notice = { kind: 'loading', symbol };
-    renderBanner();
+    session = requestQuote(session, symbol, requestedTf);
+    paint(false);
     try {
-      const quote = await fetchPublicQuote(symbol, timeframe);
+      const quote = await fetchPublicQuote(symbol, requestedTf);
       if (serial !== requestSerial) return;
-      live = { symbol: quote.symbol, source: quote.source };
-      notice = { kind: 'none' };
-      fillSymbolOptions();
+      timeframe = requestedTf;
+      session = acceptQuote(session, quote.symbol, quote.source, requestedTf);
+      rawBars = quote.bars;
       useBars(quote.bars, true);
     } catch (error) {
       if (serial !== requestSerial) return;
-      live = null;
       const reasons = error instanceof QuoteError ? error.reasons : [error instanceof Error ? error.message : 'failed'];
       const badSymbol = reasons.length === 1 && reasons[0] === 'symbol';
-      notice = {
-        kind: 'fail',
-        headline: badSymbol ? 'bad' : 'quote',
-        reasons: reasons.filter((reason) => reason !== 'symbol'),
-      };
-      fillSymbolOptions();
-      useBars(currentFixture().bars, true);
+      timeframe = requestedTf;
+      session = rejectQuote(
+        session,
+        symbol,
+        requestedTf,
+        reasons.filter((reason) => reason !== 'symbol'),
+        badSymbol ? 'bad-symbol' : 'quote',
+      );
+      rawBars = currentFixture().bars;
+      useBars(rawBars, true);
     }
   }
 
@@ -431,10 +533,9 @@ export function startDesk(): void {
     const value = symbolSelect.value;
     if (value.startsWith('fixture:')) {
       requestSerial += 1;
-      live = null;
-      fixtureId = value.slice('fixture:'.length);
-      notice = { kind: 'none' };
-      useBars(currentFixture().bars, true);
+      session = chooseLesson(value.slice('fixture:'.length));
+      rawBars = currentFixture().bars;
+      useBars(rawBars, true);
       return;
     }
     if (value.startsWith('live:')) {
@@ -448,11 +549,11 @@ export function startDesk(): void {
     button.addEventListener('click', () => {
       const next = button.dataset.tf;
       if (next !== '5m' && next !== '15m' && next !== '30m' && next !== '1h' && next !== 'D' && next !== 'W') return;
-      timeframe = next;
-      if (live) {
-        void loadLive(live.symbol);
+      if (session.quote) {
+        void loadLive(session.quote.symbol, next);
         return;
       }
+      timeframe = next;
       useBars(rawBars, true);
     });
   }
@@ -472,8 +573,9 @@ export function startDesk(): void {
     event.preventDefault();
     const symbol = customSymbol.value.trim();
     if (!symbol) {
-      notice = { kind: 'fail', headline: 'empty', reasons: [] };
-      renderBanner();
+      requestSerial += 1;
+      session = noteEmptySymbol(session, timeframe);
+      paint(false);
       customSymbol.focus();
       return;
     }

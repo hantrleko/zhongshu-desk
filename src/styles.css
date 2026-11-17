@@ -98,7 +98,7 @@ header {
   display: inline-block;
 }
 
-.latin, .owner, .hint, .meta, #study-blurb, #level-note, #source-line {
+.latin, .owner, .hint, .meta, #study-blurb, #level-note {
   color: var(--muted);
 }
 
@@ -175,15 +175,133 @@ header {
   padding: 10px 14px 0;
 }
 
-#study-title { margin: 0; font-size: 15px; }
+#study-heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+#study-kind {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--gold-text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+#study-heading.is-fallback #study-kind {
+  color: #ffd0c8;
+  border-color: var(--up);
+}
 
 #study-blurb { margin: 4px 0 0; font-size: 13px; line-height: 1.45; max-width: 72ch; }
 
-#source-line, #level-note {
+#level-note {
   margin: 6px 14px 0;
   font-size: 12px;
   line-height: 1.4;
 }
+
+.provenance {
+  margin: 8px 14px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--hub);
+  background: #171c19;
+  display: grid;
+  gap: 2px;
+}
+
+.provenance p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.provenance .alert {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.provenance .teaching { color: var(--gold-text); }
+
+.provenance.is-fallback {
+  border-left-color: var(--up);
+  background: #241816;
+}
+
+.provenance.is-pending { border-left-color: var(--gold); }
+
+.structure-gap {
+  margin: 8px 14px 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+}
+
+.structure-gap h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+
+.structure-gap p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+.glossary { flex: 1 1 100%; font-size: 13px; min-width: 0; }
+
+.glossary summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--gold-text);
+}
+
+#glossary-body {
+  max-height: 220px;
+  overflow: auto;
+  padding-bottom: 4px;
+}
+
+.glossary dl { margin: 6px 0 0; display: grid; gap: 8px; max-width: 72ch; }
+
+.glossary dt { font-weight: 600; }
+
+.glossary dd, .glossary p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+.glossary p { margin-top: 8px; }
+
+.glossary div:focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
+
+button.term {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.state dt button.term {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.hub-empty {
+  border: 1px dashed var(--line);
+  padding: 10px 12px;
+}
+
+.hub-empty h3 { margin: 0 0 4px; font-size: 14px; }
+
+.hub-empty p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
 .chart-chrome {
   display: flex;
@@ -381,6 +499,7 @@ dialog::backdrop { background: rgba(8, 10, 8, 0.72); }
   select, #custom-symbol, .controls > button, #quote-form button { width: 100%; }
   .chart-stage { height: 68vh; min-height: 320px; }
   #banner { right: 8px; }
+  .provenance, .structure-gap, #level-note { margin-left: 12px; margin-right: 12px; }
   .brand h1 { font-size: 1.5rem; }
 }
 
