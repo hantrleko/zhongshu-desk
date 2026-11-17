@@ -23,7 +23,7 @@ function mergeEigen(existing: Eigen, incoming: Eigen, direction: Direction): Eig
   };
 }
 
-function pushEigen(merged: Eigen[], incoming: Eigen): void {
+function pushEigen(merged: Eigen[], incoming: Eigen, segmentDir: Direction): void {
   if (merged.length === 0) {
     merged.push(incoming);
     return;
@@ -34,7 +34,7 @@ function pushEigen(merged: Eigen[], incoming: Eigen): void {
     return;
   }
   const direction =
-    merged.length >= 2 ? resolveDirection(merged[merged.length - 2], last) : resolveDirection(last, incoming);
+    merged.length >= 2 ? resolveDirection(merged[merged.length - 2], last) : segmentDir;
   merged[merged.length - 1] = mergeEigen(last, incoming, direction);
 }
 
@@ -65,18 +65,42 @@ function hasGap(first: Eigen, second: Eigen, segmentDir: Direction): boolean {
 export function findSegmentEnd(strokes: readonly Bi[], start: number): number | null {
   const direction = strokes[start]?.direction;
   if (!direction) return null;
+  const reverseDir: Direction = direction === 'up' ? 'down' : 'up';
   const merged: Eigen[] = [];
+  const reverseMerged: Eigen[] = [];
+  let gappedCandidate: number | null = null;
   for (let j = start + 1; j < strokes.length; j += 1) {
-    if (strokes[j].direction === direction) continue;
-    pushEigen(merged, { high: strokes[j].high, low: strokes[j].low, biIndex: j });
+    if (strokes[j].direction === direction) {
+      if (gappedCandidate !== null) {
+        pushEigen(reverseMerged, { high: strokes[j].high, low: strokes[j].low, biIndex: j }, reverseDir);
+        if (reverseMerged.length >= 3) {
+          const rLeft = reverseMerged[reverseMerged.length - 3];
+          const rMid = reverseMerged[reverseMerged.length - 2];
+          const rRight = reverseMerged[reverseMerged.length - 1];
+          const confirmed = reverseDir === 'up' ? isTop(rLeft, rMid, rRight) : isBottom(rLeft, rMid, rRight);
+          if (confirmed) return gappedCandidate;
+        }
+      }
+      continue;
+    }
+    pushEigen(merged, { high: strokes[j].high, low: strokes[j].low, biIndex: j }, direction);
     if (merged.length < 3) continue;
     const left = merged[merged.length - 3];
     const mid = merged[merged.length - 2];
     const right = merged[merged.length - 1];
     const fractal = direction === 'up' ? isTop(left, mid, right) : isBottom(left, mid, right);
-    if (!fractal || hasGap(left, mid, direction)) continue;
+    if (!fractal) continue;
     const endBi = mid.biIndex - 1;
-    if (endBi >= start + 2 && endBi < strokes.length && strokes[endBi].direction === direction) return endBi;
+    if (endBi < start + 2 || endBi >= strokes.length || strokes[endBi].direction !== direction) continue;
+    if (!hasGap(left, mid, direction)) return endBi;
+    if (gappedCandidate === null) {
+      gappedCandidate = endBi;
+      for (let k = mid.biIndex + 1; k < j; k += 1) {
+        if (strokes[k].direction === direction) {
+          pushEigen(reverseMerged, { high: strokes[k].high, low: strokes[k].low, biIndex: k }, reverseDir);
+        }
+      }
+    }
   }
   return null;
 }

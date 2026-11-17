@@ -110,7 +110,7 @@ export class DeskChart {
     this.segments = this.chart.addSeries(LineSeries, {
       color: segment,
       lineWidth: 2,
-      lineStyle: LineStyle.Dashed,
+      lineStyle: LineStyle.Solid,
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: false,
@@ -159,7 +159,8 @@ export class DeskChart {
         })),
       );
     }
-    const lineToken = `${token}|bi:${input.bi.length}|seg:${input.segments.length}`;
+    const finishedCount = input.segments.filter((item) => item.finished).length;
+    const lineToken = `${token}|bi:${input.bi.length}|seg:${input.segments.length}:${finishedCount}`;
     if (lineToken !== this.lineToken) {
       this.lineToken = lineToken;
       this.strokes.setData(linePoints(input.bi));

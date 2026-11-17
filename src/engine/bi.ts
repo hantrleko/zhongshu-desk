@@ -85,6 +85,33 @@ function toBi(start: Fractal, end: Fractal, ordinal: number): Bi {
   };
 }
 
+function canRecoverBi(start: Fractal, end: Fractal, merged: readonly MergedBar[]): boolean {
+  if (start.type === end.type) return false;
+  if (end.index - start.index <= BI_MIN_CENTER_DISTANCE) return false;
+  if (start.index < 0 || end.index >= merged.length) return false;
+  const fullSpan = uniqueExtreme(merged, start.index, end.index);
+  const tailSpan = uniqueExtreme(merged, start.index + BI_MIN_CENTER_DISTANCE, end.index);
+  if (start.type === 'bottom' && end.type === 'top') {
+    return (
+      start.low === fullSpan.minLow &&
+      fullSpan.minLowCount === 1 &&
+      end.high === tailSpan.maxHigh &&
+      tailSpan.maxHighCount === 1 &&
+      end.high > start.high
+    );
+  }
+  if (start.type === 'top' && end.type === 'bottom') {
+    return (
+      start.high === fullSpan.maxHigh &&
+      fullSpan.maxHighCount === 1 &&
+      end.low === tailSpan.minLow &&
+      tailSpan.minLowCount === 1 &&
+      end.low < start.low
+    );
+  }
+  return false;
+}
+
 /**
  * Strokes from an alternating fractal list.
  * A later fractal of the same type replaces the endpoint when it is more extreme
@@ -103,7 +130,9 @@ export function buildBi(fractals: readonly Fractal[], merged: readonly MergedBar
       if (moreExtreme(last, fractal) && canReplace) endpoints[endpoints.length - 1] = fractal;
       continue;
     }
-    if (canFormBi(last, fractal, merged)) endpoints.push(fractal);
+    if (canFormBi(last, fractal, merged) || canRecoverBi(last, fractal, merged)) {
+      endpoints.push(fractal);
+    }
   }
   const strokes: Bi[] = [];
   for (let i = 1; i < endpoints.length; i += 1) {

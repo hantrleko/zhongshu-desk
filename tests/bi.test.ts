@@ -87,4 +87,38 @@ describe('bi', () => {
     expect(buildBi([bottom], bars)).toEqual([]);
     expect(buildBi([bottom, topNear], bars)).toEqual([]);
   });
+
+  it('does not deadlock after a near-distance extreme fractal', () => {
+    const deadlockBars = [
+      merged(0, 18, 16),
+      merged(1, 20, 18),
+      merged(2, 15, 13),
+      merged(3, 12, 10),
+      merged(4, 14, 12),
+      merged(5, 16, 14),
+      merged(6, 18, 16),
+      merged(7, 19, 17),
+      merged(8, 17, 15),
+      merged(9, 15, 13),
+      merged(10, 14, 12),
+      merged(11, 13, 11),
+      merged(12, 15, 13),
+      merged(13, 16, 14),
+      merged(14, 17, 15),
+      merged(15, 18, 16),
+      merged(16, 19, 17),
+      merged(17, 17, 15),
+    ];
+    const deadlockFractals = [
+      fractal('top', 1, 20, 18),
+      fractal('bottom', 3, 12, 10),
+      fractal('top', 7, 19, 17),
+      fractal('bottom', 11, 13, 11),
+      fractal('top', 16, 19, 17),
+    ];
+    const strokes = buildBi(deadlockFractals, deadlockBars);
+    expect(strokes.length).toBeGreaterThanOrEqual(2);
+    expect(strokes[0]).toMatchObject({ direction: 'down', startIndex: 1, endIndex: 11, startPrice: 20, endPrice: 11 });
+    expect(strokes[1]).toMatchObject({ direction: 'up', startIndex: 11, endIndex: 16, startPrice: 11, endPrice: 19 });
+  });
 });
