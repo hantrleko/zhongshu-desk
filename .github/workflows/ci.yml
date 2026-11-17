@@ -3,6 +3,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -42,7 +43,7 @@ jobs:
       - run: npm run build
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -55,6 +56,11 @@ jobs:
     concurrency:
       group: pages
       cancel-in-progress: false
+    # A failed-job rerun keeps the previous attempt's artifact. The default
+    # name github-pages then collides, so the name must change with the attempt
+    # and be the same value upload and deploy-pages use.
+    env:
+      PAGES_ARTIFACT_NAME: github-pages-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,6 +73,9 @@ jobs:
           VITE_BASE: /zhongshu-desk/
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: ${{ env.PAGES_ARTIFACT_NAME }}
           path: dist
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT_NAME }}
