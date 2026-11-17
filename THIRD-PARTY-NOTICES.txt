@@ -1,0 +1,13 @@
+TradingView Lightweight Charts™
+Copyright (c) 2026 TradingView, Inc. https://www.tradingview.com/
+
+This project draws charts with the lightweight-charts package (Apache License 2.0).
+The package's license header ships inside the built script. The full Apache License 2.0
+is at https://www.apache.org/licenses/LICENSE-2.0 and in node_modules/lightweight-charts/LICENSE
+after install.
+
+The page footer links to https://www.tradingview.com/ and names TradingView as the
+creator of Lightweight Charts. That link is the attribution the library asks for.
+This desk does not use the TradingView Charting Library and does not hold a
+commercial TradingView license. The chart logo widget is turned off because the
+footer already carries the link.
