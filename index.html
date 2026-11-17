@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10140f" />
+    <meta name="description" content="中枢台 Zhongshu Desk。用来研究和把玩的缠论图台，中枢是目的。" />
+    <title>中枢台</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <a class="skip" href="#hubs">跳到中枢列表</a>
+    <header>
+      <div class="brand">
+        <p class="latin">Zhongshu Desk</p>
+        <div class="name-row">
+          <span class="hub-glyph" aria-hidden="true"></span>
+          <h1>中枢台</h1>
+        </div>
+        <p class="owner">Han Yuchen · Eugene Finance</p>
+      </div>
+      <div class="controls">
+        <label>
+          <span data-i18n="symbol">标的</span>
+          <select id="symbol"></select>
+        </label>
+        <form id="quote-form">
+          <label>
+            <span data-i18n="otherSymbol">其他代码</span>
+            <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="AAPL 或 0700.HK" />
+          </label>
+          <button type="submit" id="quote-submit">读取</button>
+        </form>
+        <button type="button" id="lang">EN</button>
+        <button type="button" id="methods-open">方法说明</button>
+        <p id="quote-hint" class="hint"></p>
+      </div>
+    </header>
+    <div class="thesis">
+      <p lang="zh">这是用来研究和把玩的：股票是一场谁有钱、谁有货的游戏。中枢是目的，分型、笔、线段和买卖点都只是看见中枢的手段。</p>
+      <p lang="en">This is for study and play. A stock is a game of who has the money and who has the shares. The hub is the aim; fractals, strokes, segments, and buy or sell labels are only ways to see it.</p>
+    </div>
+    <div class="desk">
+      <section class="stage" aria-label="Chart">
+        <div class="toolbar">
+          <div>
+            <h2 id="study-title"></h2>
+            <p id="study-blurb"></p>
+          </div>
+        </div>
+        <div class="chart-chrome">
+          <div class="chip-row" role="group" aria-labelledby="tf-label">
+            <span id="tf-label" class="chip-label" data-i18n="tfGroup">周期</span>
+            <button type="button" class="chip" data-tf="5m" aria-pressed="false">5m</button>
+            <button type="button" class="chip" data-tf="15m" aria-pressed="false">15m</button>
+            <button type="button" class="chip" data-tf="30m" aria-pressed="false">30m</button>
+            <button type="button" class="chip" data-tf="1h" aria-pressed="false">1h</button>
+            <button type="button" class="chip" data-tf="D" aria-pressed="true">D</button>
+            <button type="button" class="chip" data-tf="W" aria-pressed="false">W</button>
+          </div>
+          <div class="chip-row" role="group" aria-labelledby="layer-label">
+            <span id="layer-label" class="chip-label" data-i18n="layerGroup">图层</span>
+            <button type="button" class="chip" id="layer-all">全显</button>
+            <button type="button" class="chip" id="layer-none">全隐</button>
+            <button type="button" class="chip" id="layer-bi" aria-pressed="true">笔 BI</button>
+            <button type="button" class="chip" id="layer-seg" aria-pressed="true">线段 Seg</button>
+            <button type="button" class="chip" id="layer-zs" aria-pressed="true">中枢 ZS</button>
+            <button type="button" class="chip" id="layer-bsp" aria-pressed="true">买卖点 BSP</button>
+          </div>
+          <div class="chip-row" role="group" aria-labelledby="level-label">
+            <span id="level-label" class="chip-label" data-i18n="level">层级</span>
+            <button type="button" class="chip" id="level-bi" aria-pressed="true">笔级</button>
+            <button type="button" class="chip" id="level-seg" aria-pressed="false">段级</button>
+          </div>
+        </div>
+        <p id="source-line"></p>
+        <p id="level-note"></p>
+        <div class="chart-stage">
+          <div id="banner" role="status" hidden></div>
+          <div id="chart" role="group"></div>
+        </div>
+        <p id="structure-count"></p>
+      </section>
+      <aside id="hubs" aria-labelledby="hubs-title">
+        <h2 id="hubs-title" data-i18n="hubs">中枢</h2>
+        <div id="callout"></div>
+        <p id="select-status" class="visually-hidden" aria-live="polite"></p>
+        <div id="hub-list"></div>
+      </aside>
+    </div>
+    <footer>
+      <p id="footer-chart"></p>
+      <p id="footer-advice"></p>
+    </footer>
+    <dialog id="methods" aria-labelledby="methods-title">
+      <div class="dialog-head">
+        <h2 id="methods-title" tabindex="-1"></h2>
+        <button type="button" id="methods-close">关闭</button>
+      </div>
+      <div id="methods-body" class="dialog-body"></div>
+    </dialog>
+    <noscript>需要 JavaScript 才能计算结构并绘制 K 线。JavaScript is required to draw the bars and the hubs.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
