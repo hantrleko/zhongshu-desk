@@ -11,6 +11,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Bar, Bi, Hub, Mark, Segment } from '../engine/types.ts';
+import { markAnchor, markChartLabel, partitionLastSwing } from '../ui/clarity.ts';
 import { HubPrimitive, type ChartLabels } from './hub-primitive.ts';
 
 export interface ChartSeriesInput {
@@ -59,6 +60,7 @@ export class DeskChart {
   private readonly segments: ISeriesApi<'Line'>;
   private readonly openSegments: ISeriesApi<'Line'>;
   private readonly strokes: ISeriesApi<'Line'>;
+  private readonly openStrokes: ISeriesApi<'Line'>;
   private readonly hubs: HubPrimitive;
   private token = '';
   private lineToken = '';
@@ -130,6 +132,14 @@ export class DeskChart {
       lastValueVisible: false,
       crosshairMarkerVisible: false,
     });
+    this.openStrokes = this.chart.addSeries(LineSeries, {
+      color: 'rgba(244, 244, 244, 0.85)',
+      lineWidth: 2,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
 
     this.chart.subscribeClick((param) => {
       const id = param.hoveredInfo?.objectId ?? param.hoveredObjectId;
@@ -160,10 +170,12 @@ export class DeskChart {
       );
     }
     const finishedCount = input.segments.filter((item) => item.finished).length;
-    const lineToken = `${token}|bi:${input.bi.length}|seg:${input.segments.length}:${finishedCount}`;
+    const parts = partitionLastSwing(input.bi);
+    const lineToken = `${token}|bi:${parts.confirmed.length}:${parts.unconfirmed.length}|seg:${input.segments.length}:${finishedCount}`;
     if (lineToken !== this.lineToken) {
       this.lineToken = lineToken;
-      this.strokes.setData(linePoints(input.bi));
+      this.strokes.setData(linePoints(parts.confirmed));
+      this.openStrokes.setData(linePoints(parts.unconfirmed));
       this.segments.setData(linePoints(input.segments.filter((item) => item.finished)));
       this.openSegments.setData(linePoints(input.segments.filter((item) => !item.finished)));
     }
@@ -182,7 +194,12 @@ export class DeskChart {
         latest: hub.id === latestId,
         selected: hub.id === input.selectedId,
       })),
-      input.marks.map((mark) => ({ time: mark.time, price: mark.price, label: '3' })),
+      input.marks.map((mark) => ({
+        time: mark.time,
+        price: mark.price,
+        label: markChartLabel(mark.kind, input.labels),
+        anchor: markAnchor(mark.kind),
+      })),
       input.labels,
       input.fontFamily,
     );

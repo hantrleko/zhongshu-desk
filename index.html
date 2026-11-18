@@ -73,8 +73,13 @@
             <button type="button" class="chip" id="level-seg" aria-pressed="false">段级</button>
           </div>
         </div>
-        <p id="source-line"></p>
-        <p id="level-note"></p>
+        <div class="provenance" id="provenance">
+          <p id="source-line"></p>
+          <p id="timeframe-line"></p>
+          <p id="freshness-line"></p>
+          <p id="level-note"></p>
+        </div>
+        <ul id="chart-legend" class="legend"></ul>
         <div class="chart-stage">
           <div id="banner" role="status" hidden></div>
           <div id="chart" role="group"></div>
@@ -82,9 +87,10 @@
         <p id="structure-count"></p>
       </section>
       <aside id="hubs" aria-labelledby="hubs-title">
-        <h2 id="hubs-title" data-i18n="hubs">中枢</h2>
+        <h2 id="hubs-title" data-i18n="summary">结论</h2>
         <div id="callout"></div>
         <p id="select-status" class="visually-hidden" aria-live="polite"></p>
+        <h3 id="hub-list-title" data-i18n="hubListTitle">中枢</h3>
         <div id="hub-list"></div>
       </aside>
     </div>
