@@ -1,6 +1,13 @@
 import { DeskChart } from '../chart/desk-chart.ts';
 import type { ChartLabels } from '../chart/hub-primitive.ts';
-import { applyTimeframe, isIntraday, type Timeframe } from '../data/resample.ts';
+import { applyTimeframe, type Timeframe } from '../data/resample.ts';
+import {
+  applyLayerVisibility,
+  canSelectTimeframe,
+  emptyHubReason,
+  lastBarClock,
+  resolveShownTimeframe,
+} from './clarity.ts';
 import { fixtureById, fixtures, type Fixture } from '../data/fixtures.ts';
 import { fetchPublicQuote, QuoteError } from '../data/quote.ts';
 import { analyze } from '../engine/analyze.ts';
@@ -44,7 +51,10 @@ export function startDesk(): void {
   const studyTitle = must<HTMLElement>('study-title');
   const studyBlurb = must<HTMLElement>('study-blurb');
   const sourceLine = must<HTMLElement>('source-line');
+  const timeframeLine = must<HTMLElement>('timeframe-line');
+  const freshnessLine = must<HTMLElement>('freshness-line');
   const levelNote = must<HTMLElement>('level-note');
+  const legend = must<HTMLElement>('chart-legend');
   const structureCount = must<HTMLElement>('structure-count');
   const levelBi = must<HTMLButtonElement>('level-bi');
   const levelSeg = must<HTMLButtonElement>('level-seg');
@@ -75,6 +85,7 @@ export function startDesk(): void {
   let analysis: Analysis = analyze(rawBars);
   let requestSerial = 0;
   let fitNext = true;
+  let failedSymbol: string | null = null;
 
   const chart = new DeskChart(chartHost, (id) => {
     selectedId = selectedId === id ? null : id;
@@ -102,6 +113,24 @@ export function startDesk(): void {
 
   function currentFixture(): Fixture {
     return fixtureById(fixtureId) ?? fixtures[0];
+  }
+
+  function shownTimeframe(): Timeframe {
+    const shown = resolveShownTimeframe(timeframe, live !== null);
+    timeframe = shown;
+    return shown;
+  }
+
+  function timeframeWords(tf: Timeframe, ui: ReturnType<typeof copy>): string {
+    if (tf === 'D') return ui.tfD;
+    if (tf === 'W') return ui.tfW;
+    return tf;
+  }
+
+  function adoptLesson(nextRaw: Bar[], fit: boolean): void {
+    live = null;
+    shownTimeframe();
+    useBars(nextRaw, fit);
   }
 
   function labels(): ChartLabels {
@@ -206,7 +235,7 @@ export function startDesk(): void {
 
   function useBars(nextRaw: Bar[], fit: boolean): void {
     rawBars = nextRaw;
-    shownBars = applyTimeframe(rawBars, timeframe);
+    shownBars = applyTimeframe(rawBars, shownTimeframe());
     try {
       analysis = analyze(shownBars);
     } catch (error) {
@@ -217,6 +246,58 @@ export function startDesk(): void {
     if (selectedId && !activeHubs().some((hub) => hub.id === selectedId)) selectedId = null;
     fitNext = fit;
     paint(false);
+  }
+
+  function renderProvenance(): void {
+    const ui = text();
+    const shown = shownTimeframe();
+    const requested = timeframeWords(shown, ui);
+    if (live) {
+      const sourceName = live.source === 'yahoo' ? 'Yahoo' : 'Stooq';
+      sourceLine.textContent = `${ui.provenanceQuote} · ${sourceName} · ${live.symbol}`;
+    } else if (failedSymbol) {
+      sourceLine.textContent = ui.fallbackLesson(failedSymbol);
+    } else {
+      sourceLine.textContent = `${ui.provenanceLesson} · ${ui.teachingPrices}`;
+    }
+    const parts = [ui.timeframeLine(requested, requested)];
+    if (!live) parts.push(ui.lessonTfHint);
+    if (!live && shown === 'W') parts.push(ui.weeklyNote);
+    timeframeLine.textContent = parts.join(' ');
+    const stamp = lastBarClock(shownBars[shownBars.length - 1], shown);
+    if (stamp) {
+      const tags = [ui.lastBar(stamp), ui.notRealtime];
+      if (live) tags.push(ui.maybeDelayed);
+      else tags.push(ui.teachingPrices);
+      freshnessLine.textContent = tags.join(' · ');
+    } else {
+      freshnessLine.textContent = ui.notRealtime;
+    }
+  }
+
+  function renderLegend(): void {
+    const ui = text();
+    legend.setAttribute('aria-label', ui.legend);
+    legend.replaceChildren();
+    const items: Array<{ swatch: string; color?: string; text: string; mark?: string }> = [
+      { swatch: 'swatch', color: '#f4f4f4', text: ui.legendBi },
+      { swatch: 'swatch is-dashed', color: '#f4f4f4', text: ui.legendBiOpen },
+      { swatch: 'swatch', color: '#5b8def', text: ui.legendSeg },
+      { swatch: 'swatch is-dashed', color: '#5b8def', text: ui.legendSegOpen },
+      { swatch: 'swatch is-hub', text: ui.legendZs },
+      { swatch: 'swatch is-mark', text: ui.buy, mark: ui.buy },
+      { swatch: 'swatch is-mark', text: ui.sell, mark: ui.sell },
+    ];
+    for (const item of items) {
+      const row = document.createElement('li');
+      const sample = document.createElement('span');
+      sample.className = item.swatch;
+      sample.setAttribute('aria-hidden', 'true');
+      if (item.color) sample.style.color = item.color;
+      if (item.mark) sample.textContent = item.mark;
+      row.append(sample, document.createTextNode(item.text));
+      legend.append(row);
+    }
   }
 
   function paint(announceSelection: boolean): void {
@@ -232,15 +313,8 @@ export function startDesk(): void {
         ? '这是公开行情，不是样例。中枢按同一套规则现算。'
         : 'This is a public quote, not a lesson. Hubs are computed with the same rules.'
       : fixture.blurb[lang];
-    if (live) {
-      sourceLine.textContent = ui.sourceLive(live.source === 'yahoo' ? 'Yahoo' : 'Stooq', live.symbol, timeframeLabel());
-    } else if (isIntraday(timeframe)) {
-      sourceLine.textContent = `${ui.sourceFixtureD} ${ui.intradayNote(timeframe)}`;
-    } else if (timeframe === 'W') {
-      sourceLine.textContent = `${ui.sourceFixtureW} ${ui.weeklyNote}`;
-    } else {
-      sourceLine.textContent = ui.sourceFixtureD;
-    }
+    renderProvenance();
+    renderLegend();
     levelNote.textContent =
       level === 'bi' ? ui.levelNoteBi : analysis.segmentHubs.length === 0 ? ui.levelNoteSegEmpty : ui.levelNoteSeg;
     const finished = analysis.segments.filter((segment) => segment.finished).length;
@@ -258,8 +332,22 @@ export function startDesk(): void {
     levelSeg.textContent = lang === 'zh' ? `段级 ${analysis.segmentHubs.length}` : `Segment ${analysis.segmentHubs.length}`;
     layerAll.textContent = ui.showAll;
     layerNone.textContent = ui.hideAll;
+    const shown = shownTimeframe();
     for (const button of tfButtons) {
-      button.setAttribute('aria-pressed', button.dataset.tf === timeframe ? 'true' : 'false');
+      const tf = button.dataset.tf;
+      const allowed = tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h' || tf === 'D' || tf === 'W'
+        ? canSelectTimeframe(tf, live !== null)
+        : false;
+      button.setAttribute('aria-pressed', tf === shown ? 'true' : 'false');
+      if (!allowed) {
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+        button.title = ui.intradayDisabled;
+      } else {
+        button.disabled = false;
+        button.removeAttribute('aria-disabled');
+        button.removeAttribute('title');
+      }
     }
     layerBi.setAttribute('aria-pressed', layers.bi ? 'true' : 'false');
     layerSeg.setAttribute('aria-pressed', layers.seg ? 'true' : 'false');
@@ -270,16 +358,22 @@ export function startDesk(): void {
     chartHost.setAttribute('aria-label', ui.chartSummary(studyTitle.textContent || '', hubs.length));
     stage?.setAttribute('aria-label', lang === 'zh' ? '走势图' : 'Chart');
     chart.setLocale(lang === 'zh' ? 'zh-Hans' : 'en-US');
+    const visible = applyLayerVisibility(layers, {
+      bi: analysis.bi,
+      segments: analysis.segments,
+      hubs,
+      marks,
+    });
     chart.setSeries({
       bars: shownBars,
-      bi: layers.bi ? analysis.bi : [],
-      segments: layers.seg ? analysis.segments : [],
+      bi: visible.bi,
+      segments: visible.segments,
       fit: fitNext,
     });
     fitNext = false;
     chart.setOverlay({
-      hubs: layers.zs ? hubs : [],
-      marks: layers.bsp ? marks : [],
+      hubs: visible.hubs,
+      marks: visible.marks,
       selectedId,
       labels: labels(),
       fontFamily: getComputedStyle(document.body).fontFamily || 'sans-serif',
@@ -323,17 +417,19 @@ export function startDesk(): void {
       ),
     );
     if (!latest || close === undefined) {
-      list.append(stateRow(ui.stateZs, ui.noneStruct, ui.noHubBody));
+      const row = stateRow(ui.stateZs, ui.noneStruct, ui.noHubBody);
+      row.classList.add('is-lead');
+      list.append(row);
     } else {
       const place = priceBand(close, latest.zd, latest.zg);
       const placeText = place === 'above' ? ui.priceAbove : place === 'below' ? ui.priceBelow : ui.priceInside;
-      list.append(
-        stateRow(
-          ui.stateZs,
-          `ZG ${formatPrice(latest.zg)} — ZD ${formatPrice(latest.zd)} · ${placeText}`,
-          `${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
-        ),
+      const row = stateRow(
+        ui.stateZs,
+        `ZG ${formatPrice(latest.zg)} — ZD ${formatPrice(latest.zd)} · ${placeText}`,
+        `${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
       );
+      row.classList.add('is-lead');
+      list.append(row);
     }
     const bsp = activeMarks().length;
     const counts =
@@ -349,6 +445,28 @@ export function startDesk(): void {
     const ui = text();
     const focused = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.hubId : undefined;
     hubList.replaceChildren();
+    if (hubs.length === 0) {
+      const finished = analysis.segments.filter((segment) => segment.finished).length;
+      const reason = emptyHubReason({
+        level,
+        barCount: shownBars.length,
+        strokeCount: analysis.bi.length,
+        segmentCount: analysis.segments.length,
+        finishedSegments: finished,
+        timeframe: shownTimeframe(),
+      });
+      const empty = element('div', 'empty-hub');
+      empty.append(element('strong', undefined, ui.noHubTitle));
+      const body =
+        reason.kind === 'weekly-no-structure'
+          ? ui.emptyWeekly(reason.bars, reason.strokes)
+          : reason.kind === 'need-segments'
+            ? ui.emptyNeedSeg(reason.segments, reason.finished)
+            : ui.emptyNeedBi(reason.bars, reason.strokes);
+      empty.append(element('p', 'meta', body));
+      hubList.append(empty);
+      return;
+    }
     hubs.forEach((hub, index) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -409,12 +527,14 @@ export function startDesk(): void {
       const quote = await fetchPublicQuote(symbol, timeframe);
       if (serial !== requestSerial) return;
       live = { symbol: quote.symbol, source: quote.source };
+      failedSymbol = null;
       notice = { kind: 'none' };
       fillSymbolOptions();
       useBars(quote.bars, true);
     } catch (error) {
       if (serial !== requestSerial) return;
       live = null;
+      failedSymbol = symbol;
       const reasons = error instanceof QuoteError ? error.reasons : [error instanceof Error ? error.message : 'failed'];
       const badSymbol = reasons.length === 1 && reasons[0] === 'symbol';
       notice = {
@@ -423,7 +543,7 @@ export function startDesk(): void {
         reasons: reasons.filter((reason) => reason !== 'symbol'),
       };
       fillSymbolOptions();
-      useBars(currentFixture().bars, true);
+      adoptLesson(currentFixture().bars, true);
     }
   }
 
@@ -432,9 +552,10 @@ export function startDesk(): void {
     if (value.startsWith('fixture:')) {
       requestSerial += 1;
       live = null;
+      failedSymbol = null;
       fixtureId = value.slice('fixture:'.length);
       notice = { kind: 'none' };
-      useBars(currentFixture().bars, true);
+      adoptLesson(currentFixture().bars, true);
       return;
     }
     if (value.startsWith('live:')) {
@@ -448,6 +569,7 @@ export function startDesk(): void {
     button.addEventListener('click', () => {
       const next = button.dataset.tf;
       if (next !== '5m' && next !== '15m' && next !== '30m' && next !== '1h' && next !== 'D' && next !== 'W') return;
+      if (button.disabled || !canSelectTimeframe(next, live !== null)) return;
       timeframe = next;
       if (live) {
         void loadLive(live.symbol);

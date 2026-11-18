@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.2
+
+- 样例与公开行情、实际周期、最后一根时间（UTC，取自 K 线）和失败回退写在图上。样例上的分钟周期不可选，也不会假选中。
+- 周线没有结构、样例三尚未成枢时，侧栏给出空状态说明，不补画笔或中枢。
+- 图上三买、三卖用文字标在峰谷旁。最后一笔改为虚线，与已确认笔区分。图例与之一致。
+- 语言切换只显示对应简介。右侧先给结论、再列中枢。窄屏下主图仍占主要高度，控件换行，不为了塞进手机而缩小整台终端。
+- 390 宽屏幕上，读取、语言和方法说明放在同一行，标的与代码并排；简介默认两行、可展开。来源、实际周期和非实时说明仍写在图上。
+
+## 1.0.2
+
+- Lessons and public quotes, the actual timeframe, the last bar's UTC stamp from the series, and a failed-quote fallback are written on the desk. Minute chips cannot be selected on a lesson.
+- Weekly series with no structure, and lesson 3, show an empty-state note. No strokes or hubs are invented.
+- Third-class buy and sell labels are words placed beside the valley or peak. The last stroke is dashed. The legend matches the chart.
+- The language switch shows only one intro. The side panel leads with the reading, then the hub list. On a narrow screen the chart keeps most of the height, controls wrap, and the desk is not scaled down as a tiny terminal.
+- At a 390-wide screen, Read, language, and Methods share one row, and the symbol and ticker sit side by side. The intro starts as two lines and can be expanded. Source, actual timeframe, and the non-realtime note stay on the desk.
+
 ## 1.0.1
 
 - 图上增加图层开关：笔、线段、中枢、买卖点，以及全显 / 全隐。默认都打开，买卖点只用小号数字。
