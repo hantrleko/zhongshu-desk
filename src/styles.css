@@ -137,6 +137,14 @@ header {
   margin: 0;
 }
 
+.symbol-pair,
+.control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
 #custom-symbol { min-width: 9.5rem; }
 
 .hint { flex: 1 1 100%; margin: 0; font-size: 12px; line-height: 1.4; }
@@ -157,6 +165,20 @@ header {
 html[lang="en"] .thesis p[lang="zh"] { display: none; }
 
 html[lang="en"] .thesis p[lang="en"] { display: block; }
+
+.thesis-open {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.thesis-more { display: none; }
 
 .desk {
   flex: 1;
@@ -467,14 +489,88 @@ dialog::backdrop { background: rgba(8, 10, 8, 0.72); }
 }
 
 @media (max-width: 420px) {
-  header, .thesis, footer { padding-left: 12px; padding-right: 12px; }
-  .toolbar, .chart-chrome { padding-left: 12px; padding-right: 12px; }
+  header {
+    padding: 8px 12px 6px;
+    gap: 8px;
+  }
+  .thesis, footer { padding-left: 12px; padding-right: 12px; }
+  .thesis { padding-top: 6px; padding-bottom: 6px; }
+  .toolbar { padding: 6px 12px 0; }
+  .chart-chrome { padding: 6px 12px 0; gap: 6px 10px; }
   .provenance, .legend { margin-left: 12px; margin-right: 12px; }
-  .controls label, #quote-form, #quote-form label { flex: 1 1 100%; }
-  select, #custom-symbol, .controls > button, #quote-form button { width: 100%; }
+  .provenance { margin-top: 4px; padding: 6px 8px; gap: 2px; }
+  .legend { margin-top: 4px; }
+  .symbol-pair,
+  .control-actions {
+    width: 100%;
+  }
+  .symbol-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .symbol-pair label,
+  #quote-form,
+  #quote-form label {
+    min-width: 0;
+    width: 100%;
+  }
+  .control-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+  select,
+  #custom-symbol,
+  .control-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+  #custom-symbol { min-width: 0; }
+  .control-actions button {
+    min-height: 40px;
+    padding: 0 6px;
+    font-size: 13px;
+  }
+  .brand h1 { font-size: 1.4rem; letter-spacing: 0.1em; }
+  .owner { margin-top: 2px; }
+  .thesis:not(:has(#thesis-open:checked)) p[lang="zh"] {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  html[lang="en"] .thesis:not(:has(#thesis-open:checked)) p[lang="en"] {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .thesis-more {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 4px;
+    min-height: 32px;
+    font-size: 12px;
+    color: var(--gold-text);
+    cursor: pointer;
+  }
+  .thesis-more [lang="en"],
+  .thesis-more .less { display: none; }
+  html[lang="en"] .thesis-more [lang="zh"] { display: none; }
+  html[lang="en"] .thesis-more [lang="en"].more { display: inline; }
+  .thesis:has(#thesis-open:checked) .thesis-more .more { display: none; }
+  .thesis:has(#thesis-open:checked) .thesis-more [lang="zh"].less { display: inline; }
+  html[lang="en"] .thesis:has(#thesis-open:checked) .thesis-more [lang="en"].less { display: inline; }
+  html[lang="en"] .thesis:has(#thesis-open:checked) .thesis-more [lang="zh"].less { display: none; }
+  #study-blurb {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .chart-stage { height: 58vh; min-height: 300px; }
   #banner { right: 8px; }
-  .brand h1 { font-size: 1.5rem; letter-spacing: 0.1em; }
   .chip { min-height: 36px; }
   aside { padding: 16px 12px 28px; }
 }

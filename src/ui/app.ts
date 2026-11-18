@@ -1,7 +1,13 @@
 import { DeskChart } from '../chart/desk-chart.ts';
 import type { ChartLabels } from '../chart/hub-primitive.ts';
-import { applyTimeframe, isIntraday, type Timeframe } from '../data/resample.ts';
-import { emptyHubReason, lastBarClock, resolveShownTimeframe } from './clarity.ts';
+import { applyTimeframe, type Timeframe } from '../data/resample.ts';
+import {
+  applyLayerVisibility,
+  canSelectTimeframe,
+  emptyHubReason,
+  lastBarClock,
+  resolveShownTimeframe,
+} from './clarity.ts';
 import { fixtureById, fixtures, type Fixture } from '../data/fixtures.ts';
 import { fetchPublicQuote, QuoteError } from '../data/quote.ts';
 import { analyze } from '../engine/analyze.ts';
@@ -329,9 +335,11 @@ export function startDesk(): void {
     const shown = shownTimeframe();
     for (const button of tfButtons) {
       const tf = button.dataset.tf;
-      const minuteChip = tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h';
+      const allowed = tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h' || tf === 'D' || tf === 'W'
+        ? canSelectTimeframe(tf, live !== null)
+        : false;
       button.setAttribute('aria-pressed', tf === shown ? 'true' : 'false');
-      if (minuteChip && !live) {
+      if (!allowed) {
         button.disabled = true;
         button.setAttribute('aria-disabled', 'true');
         button.title = ui.intradayDisabled;
@@ -350,16 +358,22 @@ export function startDesk(): void {
     chartHost.setAttribute('aria-label', ui.chartSummary(studyTitle.textContent || '', hubs.length));
     stage?.setAttribute('aria-label', lang === 'zh' ? '走势图' : 'Chart');
     chart.setLocale(lang === 'zh' ? 'zh-Hans' : 'en-US');
+    const visible = applyLayerVisibility(layers, {
+      bi: analysis.bi,
+      segments: analysis.segments,
+      hubs,
+      marks,
+    });
     chart.setSeries({
       bars: shownBars,
-      bi: layers.bi ? analysis.bi : [],
-      segments: layers.seg ? analysis.segments : [],
+      bi: visible.bi,
+      segments: visible.segments,
       fit: fitNext,
     });
     fitNext = false;
     chart.setOverlay({
-      hubs: layers.zs ? hubs : [],
-      marks: layers.bsp ? marks : [],
+      hubs: visible.hubs,
+      marks: visible.marks,
       selectedId,
       labels: labels(),
       fontFamily: getComputedStyle(document.body).fontFamily || 'sans-serif',
@@ -555,7 +569,7 @@ export function startDesk(): void {
     button.addEventListener('click', () => {
       const next = button.dataset.tf;
       if (next !== '5m' && next !== '15m' && next !== '30m' && next !== '1h' && next !== 'D' && next !== 'W') return;
-      if (!live && isIntraday(next)) return;
+      if (button.disabled || !canSelectTimeframe(next, live !== null)) return;
       timeframe = next;
       if (live) {
         void loadLive(live.symbol);

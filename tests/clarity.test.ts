@@ -4,6 +4,8 @@ import { fixtures } from '../src/data/fixtures.ts';
 import { applyTimeframe } from '../src/data/resample.ts';
 import { formatBarClock, formatDay, formatUtcDateTime } from '../src/format.ts';
 import {
+  applyLayerVisibility,
+  canSelectTimeframe,
   emptyHubReason,
   lastBarClock,
   markAnchor,
@@ -26,6 +28,53 @@ describe('shown timeframe on lessons versus live quotes', () => {
     expect(resolveShownTimeframe('5m', true)).toBe('5m');
     expect(resolveShownTimeframe('1h', true)).toBe('1h');
     expect(resolveShownTimeframe('W', true)).toBe('W');
+  });
+});
+
+describe('minute chip selection on lessons', () => {
+  it('rejects a lesson click on 5m, 15m, 30m, or 1h, and keeps D and W', () => {
+    expect(canSelectTimeframe('5m', false)).toBe(false);
+    expect(canSelectTimeframe('15m', false)).toBe(false);
+    expect(canSelectTimeframe('30m', false)).toBe(false);
+    expect(canSelectTimeframe('1h', false)).toBe(false);
+    expect(canSelectTimeframe('D', false)).toBe(true);
+    expect(canSelectTimeframe('W', false)).toBe(true);
+  });
+
+  it('allows every public-quote interval, including minutes', () => {
+    expect(canSelectTimeframe('5m', true)).toBe(true);
+    expect(canSelectTimeframe('15m', true)).toBe(true);
+    expect(canSelectTimeframe('D', true)).toBe(true);
+    expect(canSelectTimeframe('W', true)).toBe(true);
+  });
+});
+
+describe('layer visibility', () => {
+  const data = {
+    bi: ['stroke'],
+    segments: ['seg'],
+    hubs: ['hub'],
+    marks: ['mark'],
+  };
+
+  it('clears every overlay on hide-all without mutating the source', () => {
+    const hidden = applyLayerVisibility(
+      { bi: false, seg: false, zs: false, bsp: false },
+      data,
+    );
+    expect(hidden).toEqual({ bi: [], segments: [], hubs: [], marks: [] });
+    expect(data).toEqual({ bi: ['stroke'], segments: ['seg'], hubs: ['hub'], marks: ['mark'] });
+  });
+
+  it('restores the same overlay objects on show-all', () => {
+    const shown = applyLayerVisibility(
+      { bi: true, seg: true, zs: true, bsp: true },
+      data,
+    );
+    expect(shown.bi).toBe(data.bi);
+    expect(shown.segments).toBe(data.segments);
+    expect(shown.hubs).toBe(data.hubs);
+    expect(shown.marks).toBe(data.marks);
   });
 });
 

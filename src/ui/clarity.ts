@@ -12,6 +12,31 @@ export function intradayChipsEnabled(isLive: boolean): boolean {
   return isLive;
 }
 
+/** A lesson click on 5m/15m/30m/1h must be ignored. Daily and weekly stay selectable. */
+export function canSelectTimeframe(requested: Timeframe, isLive: boolean): boolean {
+  return isLive || !isIntraday(requested);
+}
+
+export interface LayerFlags {
+  bi: boolean;
+  seg: boolean;
+  zs: boolean;
+  bsp: boolean;
+}
+
+/** Hide-all sends empty overlays; show-all restores the same objects. Inputs are not mutated. */
+export function applyLayerVisibility<T, U, V, W>(
+  layers: LayerFlags,
+  data: { bi: T[]; segments: U[]; hubs: V[]; marks: W[] },
+): { bi: T[]; segments: U[]; hubs: V[]; marks: W[] } {
+  return {
+    bi: layers.bi ? data.bi : [],
+    segments: layers.seg ? data.segments : [],
+    hubs: layers.zs ? data.hubs : [],
+    marks: layers.bsp ? data.marks : [],
+  };
+}
+
 /** Last bar stamp from a real bar. Returns null when there is no bar; never uses the clock. */
 export function lastBarClock(bar: Bar | undefined, shownTimeframe: Timeframe): string | null {
   if (!bar || !Number.isFinite(bar.time)) return null;

@@ -20,25 +20,36 @@
         <p class="owner">Han Yuchen · Eugene Finance</p>
       </div>
       <div class="controls">
-        <label>
-          <span data-i18n="symbol">标的</span>
-          <select id="symbol"></select>
-        </label>
-        <form id="quote-form">
+        <div class="symbol-pair">
           <label>
-            <span data-i18n="otherSymbol">其他代码</span>
-            <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="AAPL 或 0700.HK" />
+            <span data-i18n="symbol">标的</span>
+            <select id="symbol"></select>
           </label>
-          <button type="submit" id="quote-submit">读取</button>
-        </form>
-        <button type="button" id="lang">EN</button>
-        <button type="button" id="methods-open">方法说明</button>
+          <form id="quote-form">
+            <label>
+              <span data-i18n="otherSymbol">其他代码</span>
+              <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="AAPL 或 0700.HK" />
+            </label>
+          </form>
+        </div>
+        <div class="control-actions">
+          <button type="submit" form="quote-form" id="quote-submit">读取</button>
+          <button type="button" id="lang">EN</button>
+          <button type="button" id="methods-open">方法说明</button>
+        </div>
         <p id="quote-hint" class="hint"></p>
       </div>
     </header>
     <div class="thesis">
+      <input type="checkbox" id="thesis-open" class="thesis-open" />
       <p lang="zh">这是用来研究和把玩的：股票是一场谁有钱、谁有货的游戏。中枢是目的，分型、笔、线段和买卖点都只是看见中枢的手段。</p>
       <p lang="en">This is for study and play. A stock is a game of who has the money and who has the shares. The hub is the aim; fractals, strokes, segments, and buy or sell labels are only ways to see it.</p>
+      <label for="thesis-open" class="thesis-more">
+        <span lang="zh" class="more">展开</span>
+        <span lang="en" class="more">More</span>
+        <span lang="zh" class="less">收起</span>
+        <span lang="en" class="less">Less</span>
+      </label>
     </div>
     <div class="desk">
       <section class="stage" aria-label="Chart">
