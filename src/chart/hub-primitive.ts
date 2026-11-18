@@ -23,8 +23,10 @@ export interface DrawnHub {
 export interface DrawnMark {
   time: number;
   price: number;
-  /** Small chart index. The panel keeps the class name. */
+  /** Buy or sell word, placed beside the peak or valley. */
   label: string;
+  /** Sell labels sit above a peak; buy labels sit below a valley. */
+  anchor: 'above' | 'below';
 }
 
 export interface ChartLabels {
@@ -52,6 +54,7 @@ interface MediaMark {
   x: number;
   y: number;
   text: string;
+  anchor: 'above' | 'below';
 }
 
 const EMPTY_LABELS: ChartLabels = { latest: '', selected: '', zg: 'ZG', zd: 'ZD', buy: '', sell: '' };
@@ -112,18 +115,19 @@ class HubRenderer implements IPrimitivePaneRenderer {
           ctx.fillText(zd, left + width - ctx.measureText(zd).width - 6 * hx, top + height - 16 * vx);
         }
       }
-      ctx.font = `${Math.round(11 * vx)}px ${this.host.fontFamily}`;
-      ctx.fillStyle = '#b7c0ca';
-      ctx.strokeStyle = '#b7c0ca';
+      ctx.font = `${Math.round(12 * vx)}px ${this.host.fontFamily}`;
+      ctx.fillStyle = '#e6e1d6';
+      ctx.strokeStyle = '#c5cad3';
       ctx.lineWidth = Math.max(1, vx);
       for (const mark of this.host.markDots) {
         const x = Math.round(mark.x * hx);
         const y = Math.round(mark.y * vx);
         ctx.beginPath();
-        ctx.moveTo(x, y - 3 * vx);
-        ctx.lineTo(x, y + 3 * vx);
+        ctx.moveTo(x, y - 4 * vx);
+        ctx.lineTo(x, y + 4 * vx);
         ctx.stroke();
-        ctx.fillText(mark.text, x + 4 * hx, y - 14 * vx);
+        const textY = mark.anchor === 'below' ? y + 6 * vx : y - 16 * vx;
+        ctx.fillText(mark.text, x + 5 * hx, textY);
       }
     });
   }
@@ -206,7 +210,7 @@ export class HubPrimitive implements ISeriesPrimitive<Time> {
         const x = scale.timeToCoordinate(mark.time as UTCTimestamp);
         const y = this.series.priceToCoordinate(mark.price);
         if (x === null || y === null) continue;
-        markDots.push({ x, y, text: mark.label });
+        markDots.push({ x, y, text: mark.label, anchor: mark.anchor });
       }
     }
     this.boxes = boxes;
