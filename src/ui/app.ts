@@ -1,3 +1,6 @@
+import { buildResearch } from './research.ts';
+import { researchCopy, researchCommentary, scenarioText, trendTitle, levelPosition, rangeAssessment } from './research-copy.ts';
+import { loadComparison, matchesQuote, type ComparisonRow } from './comparison.ts';
 import { DeskChart, structureSwingLabels } from '../chart/desk-chart.ts';
 import type { ChartLabels } from '../chart/hub-primitive.ts';
 import { computeMacd, computeSma, volumePoints } from '../data/indicators.ts';
@@ -181,7 +184,7 @@ export function startDesk(): void {
   let timeframe: Timeframe = 'D';
   let level: HubLevel = 'bi';
   let layers = { bi: true, seg: true, zs: true, bsp: true };
-  let showMa = false;
+  let showMa = true;
   let selectedId: string | null = null;
   let rawBars: Bar[] = [];
   let shownBars: Bar[] = [];
@@ -189,6 +192,8 @@ export function startDesk(): void {
   let requestSerial = 0;
   let fitNext = true;
   let failedSymbol: string | null = null;
+  let comparisonRows: ComparisonRow[] = [];
+  let selectedLevel: string | null = null;
   let mobilePanel: 'chart' | 'watch' | 'dock' = 'chart';
   const watchCache = new Map<string, WatchSnapshot>();
 
@@ -210,10 +215,6 @@ export function startDesk(): void {
 
   function activeMarks(): Mark[] {
     return level === 'bi' ? analysis.biMarks : analysis.segmentMarks;
-  }
-
-  function timeframeLabel(): string {
-    return timeframe;
   }
 
   function currentFixture(): Fixture {
@@ -241,6 +242,7 @@ export function startDesk(): void {
 
   function loadLesson(): void {
     requestSerial += 1;
+    comparisonRows = [];
     failedSymbol = null;
     notice = { kind: 'none' };
     adoptLesson(currentFixture().bars, true);
@@ -329,7 +331,7 @@ export function startDesk(): void {
 
   type Notice =
     | { kind: 'none' }
-    | { kind: 'loading'; symbol: string }
+    | { kind: 'loading'; symbol: string; timeframe: Timeframe }
     | { kind: 'fail'; headline: 'quote' | 'bad' | 'empty' | 'raw'; reasons: string[] };
 
   let notice: Notice = { kind: 'none' };
@@ -345,14 +347,22 @@ export function startDesk(): void {
     banner.hidden = false;
     banner.classList.toggle('is-error', notice.kind === 'fail');
     const lines: string[] = [];
-    if (notice.kind === 'loading') lines.push(ui.loading(notice.symbol, timeframeLabel()));
+    if (notice.kind === 'loading') lines.push(ui.loading(notice.symbol, timeframeWords(notice.timeframe, ui)));
     if (notice.kind === 'fail') {
       if (notice.headline === 'quote') lines.push(ui.quoteFail);
       if (notice.headline === 'bad') lines.push(ui.badSymbol);
       if (notice.headline === 'empty') lines.push(ui.emptySymbol);
-      lines.push(...notice.reasons);
+      if (notice.headline === 'raw') lines.push(lang === 'zh' ? '当前数据未通过结构校验，暂不更新研判。' : 'The data failed structure validation; the assessment was not updated.');
+
     }
     banner.replaceChildren(...lines.filter(Boolean).map((line) => element('p', undefined, line)));
+    if (notice.kind === 'fail' && notice.reasons.length) {
+      const details = document.createElement('details');
+      details.className = 'source-errors';
+      details.append(element('summary', undefined, lang === 'zh' ? '数据源返回明细' : 'Source diagnostics'));
+      for (const reason of notice.reasons) details.append(element('p', undefined, reason));
+      banner.append(details);
+    }
     if (notice.kind === 'fail' && notice.headline === 'quote') {
       const actions = element('div', 'banner-actions');
       const button = document.createElement('button');
@@ -366,7 +376,10 @@ export function startDesk(): void {
 
   function useBars(nextRaw: Bar[], fit: boolean): void {
     rawBars = nextRaw;
-    shownBars = applyTimeframe(rawBars, shownTimeframe());
+    // Public quotes already carry the requested interval; only lessons are resampled.
+    shownBars = live ? rawBars.map(bar => ({ ...bar })) : applyTimeframe(rawBars, shownTimeframe());
+    chart.setReferenceLevel();
+    selectedLevel = null;
     try {
       analysis = analyze(shownBars);
     } catch (error) {
@@ -429,7 +442,7 @@ export function startDesk(): void {
     sample.className = item.swatch;
     sample.setAttribute('aria-hidden', 'true');
     if (item.color) sample.style.color = item.color;
-    if (item.mark) sample.textContent = item.mark;
+    if (item.mark) sample.textContent = item.mark === text().buy ? '↑' : '↓';
     row.append(sample, document.createTextNode(item.text));
     return row;
   }
@@ -514,7 +527,11 @@ export function startDesk(): void {
     if (quote.currency) grid.append(quoteField(ui.fieldCurrency, quote.currency));
     grid.append(quoteField(ui.fieldSource, sourceName(quote.source)));
     const stamp = lastBarClock(quote.bars[quote.bars.length - 1], quote.timeframe);
-    if (stamp) grid.append(quoteField(ui.fieldTime, stamp));
+    if (stamp) {
+      const dateField = quoteField(ui.fieldTime, stamp);
+      dateField.className = 'quote-stamp';
+      grid.append(dateField);
+    }
     grid.append(quoteField(ui.fieldDelay, quote.delayed ? ui.delayedYes : ui.delayedUnknown));
     quoteBoard.append(grid);
   }
@@ -528,7 +545,8 @@ export function startDesk(): void {
     const latest = hubs[hubs.length - 1];
     const reading = readingInput(latest);
     studyTitle.textContent = live ? [live.symbol, lastQuote?.name ?? live.name].filter(Boolean).join(' · ') : fixture.title[lang];
-    stageReading.textContent = ui.stageReading(reading);
+    stageReading.textContent = shownBars.length ? ui.stageReading(reading) : ui.emptyQuote;
+    must<HTMLElement>('toolbar-context').textContent = `${timeframeWords(timeframe, ui)} · ${lang === 'zh' ? '价格结构研究' : 'Price structure research'}`;
     studyBlurb.textContent = live ? ui.liveBlurb : shownBars.length === 0 ? ui.emptyQuote : fixture.blurb[lang];
     renderProvenance();
     renderLegend();
@@ -556,6 +574,8 @@ export function startDesk(): void {
     const shown = shownTimeframe();
     for (const button of tfButtons) {
       const tf = button.dataset.tf;
+      if (tf === 'D') button.textContent = ui.tfD;
+      if (tf === 'W') button.textContent = ui.tfW;
       const allowed =
         tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h' || tf === 'D' || tf === 'W'
           ? canSelectTimeframe(tf, live !== null)
@@ -611,9 +631,122 @@ export function startDesk(): void {
       swings: structureSwingLabels(visible.bi, visible.segments, labelSet),
     });
     renderState(latest, reading);
+    renderResearch(latest);
+    renderComparison();
     renderList(hubs, marks);
     if (stage) stage.setAttribute('aria-busy', 'false');
     if (announceSelection) announce();
+  }
+
+  function renderResearch(latest: Hub | undefined): void {
+    const c = researchCopy(lang);
+    const provisional = latest ? (level === 'bi'
+      ? latest.memberIds.includes(analysis.bi.at(-1)?.id ?? '')
+      : analysis.segments.some(segment => latest.memberIds.includes(segment.id) && !segment.finished)) : false;
+    const r = buildResearch(shownBars, latest, provisional);
+    must<HTMLElement>('research-title').textContent = c.title;
+    must<HTMLElement>('levels-title').textContent = c.levels;
+    must<HTMLElement>('settings-label').textContent = c.tools;
+    must<HTMLElement>('structure-detail-title').textContent = c.structure;
+    must<HTMLElement>('fit-recent').textContent = c.recent;
+    const commentary = must<HTMLElement>('research-reading');
+    commentary.replaceChildren(element('h3', 'assessment-headline', trendTitle(r.trend, lang)),
+      element('p', 'assessment-copy', researchCommentary(r, lang)));
+    const evidence = must<HTMLElement>('research-evidence');
+    const evidenceButton = document.createElement('button');
+    evidenceButton.type = 'button';
+    evidenceButton.className = 'evidence-link';
+    evidenceButton.textContent = `${c.observations} ↗`;
+    evidenceButton.title = c.evidenceTip;
+    evidenceButton.disabled = shownBars.length === 0;
+    evidenceButton.addEventListener('click', () => {
+      showMa = true;
+      paint(false);
+      if (shownBars.length) chart.reveal(shownBars[Math.max(0, shownBars.length - 21)].time, shownBars[shownBars.length - 1].time);
+      focusChart();
+    });
+    const metrics = element('dl', 'research-metrics');
+    metrics.append(quoteField(c.ma, r.ma20 === undefined ? c.missing : formatPrice(r.ma20)),
+      quoteField(c.deviation, r.deviation === undefined ? c.missing : formatPercent(r.deviation)),
+      quoteField(c.momentum, r.dif === undefined || r.dea === undefined ? c.missing : `${formatPrice(r.dif)} / ${formatPrice(r.dea)}`),
+      quoteField(c.volume, r.volumeRatio === undefined ? c.noVolume : `${r.volumeRatio.toFixed(2)}×`));
+    const method = document.createElement('details');
+    method.className = 'calculation-note';
+    method.append(element('summary', undefined, lang === 'zh' ? '计算口径与局限' : 'Definitions & limits'), element('p', 'meta', c.definition));
+    evidence.replaceChildren(evidenceButton, metrics, method);
+    const levels = must<HTMLElement>('research-levels');
+    levels.replaceChildren();
+    for (const item of r.levels) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const id = item.kind;
+      button.className = 'reference-level';
+      button.setAttribute('aria-pressed', selectedLevel === id ? 'true' : 'false');
+      button.title = c.levelTip;
+      const title = element('span', 'reference-name', c.levelName[item.kind]);
+      if (item.provisional) title.append(element('small', undefined, c.provisional));
+      button.append(title, element('strong', 'reference-price', formatPrice(item.price)),
+        element('span', 'reference-distance', `${levelPosition(item, lang)} ↗`));
+      button.addEventListener('click', () => {
+        const deselect = selectedLevel === id;
+        selectedLevel = deselect ? null : id;
+        chart.setReferenceLevel(deselect ? undefined : item.price);
+        if (!deselect) chart.reveal(item.from, Math.max(item.to, shownBars.at(-1)?.time ?? item.to));
+        renderResearch(latest);
+        const updated = levels.querySelector<HTMLButtonElement>(`[aria-pressed="${!deselect}"]`);
+        updated?.focus({ preventScroll: true });
+        selectStatus.textContent = `${c.levelName[item.kind]} ${formatPrice(item.price)} · ${levelPosition(item, lang)}`;
+        focusChart();
+      });
+      levels.append(button);
+    }
+    if (!r.levels.length) levels.append(element('p', 'meta', c.missing));
+    must<HTMLElement>('levels-note').textContent = c.levelNote;
+    const scenarios = must<HTMLElement>('research-scenarios');
+    const scenario = scenarioText(r, lang);
+    scenarios.replaceChildren();
+    if (scenario) scenarios.append(element('h3', undefined, lang === 'zh' ? '观察条件' : 'Conditional tests'),
+      element('p', 'range-assessment', rangeAssessment(r, lang)), element('p', 'scenario', scenario.upper), element('p', 'scenario', scenario.lower));
+    must<HTMLElement>('research-limits').textContent = c.limits;
+  }
+
+  function renderComparison(): void {
+    const c = researchCopy(lang);
+    const ui = text();
+    must<HTMLElement>('comparison-title').textContent = c.comparison;
+    must<HTMLElement>('comparison-note').textContent = c.pairNote;
+    const containers = [must<HTMLElement>('comparison-rows'), must<HTMLElement>('mobile-comparison')];
+    for (const container of containers) {
+      container.replaceChildren();
+      if (container.id === 'mobile-comparison') container.append(element('h2', undefined, c.comparison));
+      if (comparisonRows.length === 0) {
+        container.append(element('p', 'meta', live ? c.pending : lang === 'zh' ? '周期对照仅用于公开行情。' : 'Comparison is available for public quotes.'));
+      }
+      for (const row of comparisonRows) {
+        const block = element('div', 'comparison-row');
+        const label = timeframeWords(row.timeframe, ui);
+        if (row.status !== 'ready') {
+          block.append(element('strong', undefined, label), element('span', 'meta', row.status === 'loading' ? c.pending : c.unavailable));
+        } else {
+          const r = buildResearch(row.quote.bars);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'comparison-switch';
+          button.textContent = `${label} ↗`;
+          button.setAttribute('aria-label', `${label} · ${row.quote.display}`);
+          button.addEventListener('click', () => {
+            if (live) void loadLive(live.symbol, row.timeframe);
+            setMobilePanel('chart');
+          });
+          block.append(button, element('strong', 'comparison-trend', trendTitle(r.trend, lang)),
+            element('span', 'comparison-value', r.ma20 === undefined || r.deviation === undefined ? c.missing : `MA20 ${formatPrice(r.ma20)} · ${formatPercent(r.deviation)}`));
+          const stamp = lastBarClock(row.quote.bars.at(-1), row.timeframe);
+          block.append(element('span', 'comparison-source', `${sourceName(row.quote.source)} · ${ui.lastBar(stamp ?? '—')} · ${ui.notRealtime} · ${row.quote.delayed ? ui.delayedYes : ui.maybeDelayed}`));
+        }
+        container.append(block);
+      }
+      if (container.id === 'mobile-comparison') container.append(element('p', 'meta', c.pairNote));
+    }
   }
 
   function readingInput(latest: Hub | undefined): ReadingInput {
@@ -779,16 +912,20 @@ export function startDesk(): void {
     });
   }
 
-  async function loadLive(symbol: string): Promise<void> {
+  async function loadLive(symbol: string, requestedTimeframe: Timeframe = timeframe): Promise<void> {
     const serial = ++requestSerial;
     if (stage) stage.setAttribute('aria-busy', 'true');
-    notice = { kind: 'loading', symbol };
+    notice = { kind: 'loading', symbol, timeframe: requestedTimeframe };
+    comparisonRows = comparisonRows.map(row => row.status === 'loading' ? { timeframe: row.timeframe, status: 'unavailable' } : row);
+    renderComparison();
     renderBanner();
     try {
       const mapped = mapSymbol(symbol);
       if (mapped.market === 'ashare' || mapped.market === 'us') market = mapped.market;
-      const quote = await fetchPublicQuote(symbol, timeframe);
+      const quote = await fetchPublicQuote(symbol, requestedTimeframe);
       if (serial !== requestSerial) return;
+      if (!matchesQuote(quote, symbol, requestedTimeframe)) throw new Error(lang === 'zh' ? '行情周期或数据校验未通过。' : 'Quote interval or data validation failed.');
+      timeframe = quote.timeframe;
       live = { symbol: quote.display, source: quote.source, name: quote.name };
       lastQuote = quote;
       failedSymbol = null;
@@ -796,7 +933,12 @@ export function startDesk(): void {
       rememberQuote(quote);
       customSymbol.value = quote.display;
       persistDisplaySymbol(quote.display);
+      comparisonRows = (['D', 'W'] as const).map(tf => ({ timeframe: tf, status: 'loading' }));
       useBars(quote.bars, true);
+      void loadComparison(quote, fetchPublicQuote, (row) => {
+        comparisonRows = comparisonRows.map(previous => previous.timeframe === row.timeframe ? row : previous);
+        renderComparison();
+      }, () => serial === requestSerial);
     } catch (error) {
       if (serial !== requestSerial) return;
       const reasons = error instanceof QuoteError ? error.reasons : [error instanceof Error ? error.message : 'failed'];
@@ -815,6 +957,11 @@ export function startDesk(): void {
     }
   }
 
+  function focusChart(): void {
+    setMobilePanel('chart');
+    if (window.matchMedia('(max-width: 900px)').matches) chartHost.focus({ preventScroll: true });
+  }
+
   function setMobilePanel(next: 'chart' | 'watch' | 'dock'): void {
     mobilePanel = next;
     desk.classList.toggle('is-drawer-watch', next === 'watch');
@@ -829,11 +976,11 @@ export function startDesk(): void {
       const next = button.dataset.tf;
       if (next !== '5m' && next !== '15m' && next !== '30m' && next !== '1h' && next !== 'D' && next !== 'W') return;
       if (button.disabled || !canSelectTimeframe(next, live !== null)) return;
-      timeframe = next;
       if (live) {
-        void loadLive(live.symbol);
+        void loadLive(live.symbol, next);
         return;
       }
+      timeframe = next;
       useBars(rawBars, true);
     });
   }
@@ -842,7 +989,14 @@ export function startDesk(): void {
     layers = next;
     paint(false);
   }
-  fitAll.addEventListener('click', () => chart.fitAll());
+  fitAll.addEventListener('click', () => {
+    chart.fitAll();
+    must<HTMLDetailsElement>('chart-settings').open = false;
+  });
+  must<HTMLElement>('fit-recent').addEventListener('click', () => {
+    chart.fitRecent(shownBars.length);
+    must<HTMLDetailsElement>('chart-settings').open = false;
+  });
   layerAll.addEventListener('click', () => setLayers({ bi: true, seg: true, zs: true, bsp: true }));
   layerNone.addEventListener('click', () => setLayers({ bi: false, seg: false, zs: false, bsp: false }));
   layerBi.addEventListener('click', () => setLayers({ ...layers, bi: !layers.bi }));
@@ -877,11 +1031,15 @@ export function startDesk(): void {
 
   levelBi.addEventListener('click', () => {
     level = 'bi';
+    chart.setReferenceLevel();
+    selectedLevel = null;
     selectedId = null;
     paint(false);
   });
   levelSeg.addEventListener('click', () => {
     level = 'segment';
+    chart.setReferenceLevel();
+    selectedLevel = null;
     selectedId = null;
     paint(false);
   });
@@ -892,17 +1050,35 @@ export function startDesk(): void {
     paint(true);
   });
 
+  const settings = must<HTMLDetailsElement>('chart-settings');
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Node && !settings.contains(event.target)) settings.open = false;
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && settings.open) {
+      settings.open = false;
+      must<HTMLElement>('settings-label').focus();
+    }
+  });
   methodsButton.addEventListener('click', () => {
+    settings.open = false;
     renderMethods();
     dialog.showModal();
     methodsTitle.focus();
   });
   methodsClose.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => methodsButton.focus());
+  dialog.addEventListener('close', () => must<HTMLElement>('settings-label').focus());
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
 
+  document.querySelector<HTMLAnchorElement>('.skip')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setMobilePanel('dock');
+    const heading = must<HTMLElement>('research-title');
+    heading.tabIndex = -1;
+    heading.focus();
+  });
   tabChart.addEventListener('click', () => setMobilePanel('chart'));
   tabWatch.addEventListener('click', () => setMobilePanel(mobilePanel === 'watch' ? 'chart' : 'watch'));
   tabDock.addEventListener('click', () => setMobilePanel(mobilePanel === 'dock' ? 'chart' : 'dock'));

@@ -9,13 +9,14 @@ import {
   type IChartApi,
   type IPaneApi,
   type ISeriesApi,
+  type IPriceLine,
   type LineData,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { MacdPoint } from '../data/indicators.ts';
 import type { Bar, Bi, Hub, Mark, Segment } from '../engine/types.ts';
-import { markAnchor, markChartLabel, partitionLastSwing, recentVisibleLogicalRange } from '../ui/clarity.ts';
+import { evidenceVisibleLogicalRange, markAnchor, markChartLabel, partitionLastSwing, recentVisibleLogicalRange } from '../ui/clarity.ts';
 import { HubPrimitive, type ChartLabels, type DrawnMark } from './hub-primitive.ts';
 
 export interface MaLineInput {
@@ -98,6 +99,8 @@ export class DeskChart {
   private macdSignal: ISeriesApi<'Line'> | null = null;
   private token = '';
   private lineToken = '';
+  private referenceLine: IPriceLine | null = null;
+  private barTimes: number[] = [];
 
   constructor(container: HTMLElement, onSelect: (id: string) => void) {
     const bg = cssVar('--bg', '#07080a');
@@ -116,7 +119,7 @@ export class DeskChart {
         background: { type: ColorType.Solid, color: bg },
         textColor: text,
         fontFamily: font,
-        fontSize: 11,
+        fontSize: 12,
         attributionLogo: false,
         panes: { separatorColor: line, separatorHoverColor: '#2a313a', enableResize: true },
       },
@@ -124,7 +127,7 @@ export class DeskChart {
         vertLines: { color: grid },
         horzLines: { color: grid },
       },
-      rightPriceScale: { borderColor: line, scaleMargins: { top: 0.08, bottom: 0.08 } },
+      rightPriceScale: { minimumWidth: 76, borderColor: line, scaleMargins: { top: 0.08, bottom: 0.08 } },
       timeScale: { borderColor: line, rightOffset: 8, barSpacing: 16, minBarSpacing: 5 },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -183,6 +186,22 @@ export class DeskChart {
     });
   }
 
+  setReferenceLevel(price?: number): void {
+    if (this.referenceLine) this.candles.removePriceLine(this.referenceLine);
+    this.referenceLine = null;
+    if (price !== undefined && Number.isFinite(price)) {
+      this.referenceLine = this.candles.createPriceLine({
+        price, color: '#d6c07a', lineWidth: 1, lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true, title: '',
+      });
+    }
+  }
+
+  fitRecent(barCount: number): void {
+    const range = recentVisibleLogicalRange(barCount);
+    if (range) this.chart.timeScale().setVisibleLogicalRange(range);
+  }
+
   setLocale(locale: string): void {
     this.chart.applyOptions({
       localization: { locale, priceFormatter: formatAxisNumber },
@@ -195,6 +214,7 @@ export class DeskChart {
     const changed = token !== this.token;
     if (changed) {
       this.token = token;
+      this.barTimes = input.bars.map(bar => bar.time);
       this.candles.setData(
         input.bars.map((bar) => ({
           time: stamp(bar.time),
@@ -255,10 +275,10 @@ export class DeskChart {
   }
 
   reveal(startTime: number, endTime: number): void {
-    const span = Math.max(endTime - startTime, 5 * 86_400);
-    const pad = span * 0.45;
+    const range = evidenceVisibleLogicalRange(this.barTimes, startTime, endTime);
+    if (!range) return;
     try {
-      this.chart.timeScale().setVisibleRange({ from: stamp(startTime - pad), to: stamp(endTime + pad) });
+      this.chart.timeScale().setVisibleLogicalRange(range);
     } catch {
       // A range outside the series is left as the chart drew it.
     }
