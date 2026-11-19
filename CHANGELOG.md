@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- 用语改成好读的完整句子：保留“笔”“线段”“中枢”这些词，但先用白话解释。右侧「现在怎样」先给一段阅读，再列最近一笔、当前线段和震荡区间的上沿、下沿。图题下有一句短说明；窄屏仍显示，最多三行。
+- 图层和层级芯片改成「笔 / 线段 / 震荡区 / 买卖点」和「按笔看 / 按线段看」，并加上简短提示。列表标题改为「震荡区间 1 · 按笔构成」。计数不再写 BI、ZS、BSP。
+- 默认打开中际旭创（300308），并把它放在自选最前，同时带上茅台等默认名称。地址栏 `?symbol=` 优先，其次是本地记下的代码，读行情成功后会写回地址栏和本地存储，方便分享。
+- 收紧右侧结论区，避免「现在怎样」列表最后一行被裁切。窄屏抽屉铺满主图区域，不再露出底下的计数行；页脚改显示学习免责声明，不再被长版权说明挤掉。
+
+- Copy is written as complete sentences. The technical terms stay, but they are explained in plain language first. The dock’s “What’s happening” block leads with a reading, then a definition list with the latest stroke, the current segment, and the range’s upper and lower edges. A short sentence sits under the chart title and remains visible on a narrow screen, clamped to three lines.
+- Layer and level chips now read “Stroke / Segment / Range / Buy/sell” and “Read by strokes / Read by segments,” with short tooltips. Hub cards are titled “Range 1 · built from strokes.” Counts no longer use BI, ZS, or BSP.
+- The desk opens on Zhongji Innolight (300308), lists it first in the watchlist, and shows default names for the A-share symbols. A `?symbol=` query wins, then the locally stored ticker. A successful quote is written back to the URL and to localStorage so the page can be shared.
+- The right-hand reading dock is tighter so the last definition-list row is not clipped. On a narrow screen the drawer covers the chart area instead of leaving the count line showing through, and the footer keeps the study disclaimer instead of only the long chart credit.
+
 ## 1.1.0
 
 - 终端布局：近黑全屏主图、细工具条、左侧自选、右侧行情板与缠论结论。K 线按参考图用绿涨红跌，柱体更宽。笔、线段、中枢、三买、三卖标在摆动旁。有成交量时画出量柱，MACD(12,26,9) 作为指标副图，不是缠论。可选 MA(5/10/20)。
