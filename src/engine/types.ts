@@ -7,6 +7,8 @@ export interface Bar {
   high: number;
   low: number;
   close: number;
+  /** Present only when the feed supplied it. The engine ignores this field. */
+  volume?: number;
 }
 
 /**
