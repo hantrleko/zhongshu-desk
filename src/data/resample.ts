@@ -9,6 +9,10 @@ export function isIntraday(timeframe: Timeframe): boolean {
   return timeframe !== 'D' && timeframe !== 'W';
 }
 
+function finiteVolume(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 /** Monday 00:00 UTC of the week containing `time`. Not an exchange calendar. */
 export function weekStart(time: number): number {
   const date = new Date(time * 1000);
@@ -24,12 +28,16 @@ export function resampleWeekly(bars: readonly Bar[]): Bar[] {
     const key = weekStart(bar.time);
     const existing = groups.get(key);
     if (!existing) {
-      groups.set(key, { time: key, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+      const next: Bar = { time: key, open: bar.open, high: bar.high, low: bar.low, close: bar.close };
+      if (finiteVolume(bar.volume)) next.volume = bar.volume;
+      groups.set(key, next);
       continue;
     }
     existing.high = Math.max(existing.high, bar.high);
     existing.low = Math.min(existing.low, bar.low);
     existing.close = bar.close;
+    if (finiteVolume(existing.volume) && finiteVolume(bar.volume)) existing.volume = existing.volume + bar.volume;
+    else delete existing.volume;
   }
   return [...groups.values()];
 }
