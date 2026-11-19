@@ -14,6 +14,7 @@ export type ReadingInput = {
 };
 
 interface Copy {
+  workspaceLabel: string;
   symbol: string;
   timeframe: string;
   tfD: string;
@@ -160,93 +161,33 @@ interface Copy {
 
 function readingZh(input: ReadingInput): string {
   const parts: string[] = [];
-  if (!input.bi) {
-    parts.push('图上还没有形成笔。');
-  } else {
-    const dir = input.bi.direction === 'up' ? '向上' : '向下';
-    parts.push(`最近一笔还在${dir}走，但还没确认，后面的 K 线可能会改写它。`);
-  }
-  if (!input.seg) {
-    parts.push(input.bi ? '更大一级的线段还没有走出来。' : '更大一级的线段也还没有走出来。');
-  } else {
-    const dir = input.seg.direction === 'up' ? '向上' : '向下';
-    if (input.seg.finished) {
-      parts.push(`更大一级的线段目前${dir}，已经走完。`);
-    } else if (input.bi) {
-      parts.push(`更大一级的线段目前${dir}，同样还没走完。`);
-    } else {
-      parts.push(`更大一级的线段目前${dir}，还没走完。`);
-    }
-  }
-  if (!input.hub) {
-    parts.push('还没有走出一段价格来回重叠的震荡区间（也叫中枢）。');
-  } else if (input.hub.place === 'inside') {
-    parts.push(`现价在最近一段震荡区间里（下沿\u00a0${input.hub.zd}，上沿\u00a0${input.hub.zg}）。`);
-  } else {
-    const place = input.hub.place === 'above' ? '上方' : '下方';
-    parts.push(`现价在最近一段震荡区间的${place}（下沿\u00a0${input.hub.zd}，上沿\u00a0${input.hub.zg}）。`);
-  }
+  if (input.bi) parts.push(`末笔${input.bi.direction === 'up' ? '向上' : '向下'}，尚未确认，端点仍可能延伸。`);
+  else parts.push('当前样本尚未形成有效笔。');
+  if (input.seg) parts.push(`线段方向${input.seg.direction === 'up' ? '向上' : '向下'}，${input.seg.finished ? '已确认' : '待确认'}。`);
+  else parts.push('线段结构尚未形成。');
+  if (input.hub) {
+    const place = input.hub.place === 'above' ? '上方' : input.hub.place === 'below' ? '下方' : '内部';
+    parts.push(`末根收盘位于最近中枢${place}，区间为 ${input.hub.zd}–${input.hub.zg}。`);
+  } else parts.push('当前层级暂无有效中枢。');
   return parts.join('');
 }
 
 function readingEn(input: ReadingInput): string {
-  const parts: string[] = [];
-  if (!input.bi) {
-    parts.push('No stroke has formed on the chart yet.');
-  } else {
-    const dir = input.bi.direction === 'up' ? 'up' : 'down';
-    parts.push(
-      `The latest stroke is still moving ${dir}, but it is not confirmed yet, and later bars may rewrite it.`,
-    );
-  }
-  if (!input.seg) {
-    parts.push(input.bi ? 'A larger segment has not formed yet.' : 'A larger segment has not formed yet either.');
-  } else {
-    const dir = input.seg.direction === 'up' ? 'up' : 'down';
-    if (input.seg.finished) {
-      parts.push(`The larger segment is currently ${dir}, and it has finished.`);
-    } else if (input.bi) {
-      parts.push(`The larger segment is currently ${dir}, and it has not finished either.`);
-    } else {
-      parts.push(`The larger segment is currently ${dir}, and it has not finished.`);
-    }
-  }
-  if (!input.hub) {
-    parts.push('A price-overlapping oscillation range (also called a hub) has not formed yet.');
-  } else {
-    const place =
-      input.hub.place === 'above' ? 'above' : input.hub.place === 'below' ? 'below' : 'inside';
-    parts.push(
-      `The last price is ${place} the latest oscillation range (lower edge\u00a0${input.hub.zd}, upper edge\u00a0${input.hub.zg}).`,
-    );
-  }
+  const parts = [input.bi ? `The latest stroke points ${input.bi.direction}; it is provisional and its endpoint may extend.` : 'No valid stroke in the available sample.'];
+  parts.push(input.seg ? `The segment points ${input.seg.direction} and is ${input.seg.finished ? 'confirmed' : 'provisional'}.` : 'No segment has formed.');
+  parts.push(input.hub ? `Last bar close is ${input.hub.place} the latest hub, ${input.hub.zd}–${input.hub.zg}.` : 'No valid hub at this level.');
   return parts.join(' ');
 }
 
 function stageReadingZh(input: ReadingInput): string {
-  if (!input.hub) return '还没有形成震荡区间。';
-  const place =
-    input.hub.place === 'above'
-      ? '现价在震荡区间上方'
-      : input.hub.place === 'below'
-        ? '现价在震荡区间下方'
-        : '现价在震荡区间里';
-  if (!input.bi) return `${place}。`;
-  const dir = input.bi.direction === 'up' ? '向上' : '向下';
-  return `${place}，最近一笔${dir}但尚未确认。`;
+  if (!input.hub) return '当前层级暂无有效中枢。';
+  const place = input.hub.place === 'above' ? '上方' : input.hub.place === 'below' ? '下方' : '内部';
+  return `末根收盘位于中枢${place}${input.bi ? `；末笔${input.bi.direction === 'up' ? '向上' : '向下'}，待确认` : ''}。`;
 }
 
 function stageReadingEn(input: ReadingInput): string {
-  if (!input.hub) return 'No oscillation range has formed yet.';
-  const place =
-    input.hub.place === 'above'
-      ? 'Price is above the oscillation range'
-      : input.hub.place === 'below'
-        ? 'Price is below the oscillation range'
-        : 'Price is inside the oscillation range';
-  if (!input.bi) return `${place}.`;
-  const dir = input.bi.direction === 'up' ? 'up' : 'down';
-  return `${place}; the latest stroke is ${dir} but not yet confirmed.`;
+  if (!input.hub) return 'No valid hub at this level.';
+  return `Last bar close is ${input.hub.place} the hub${input.bi ? `; the latest ${input.bi.direction} stroke is provisional` : ''}.`;
 }
 
 function hubTitleZh(level: HubLevel, index: number): string {
@@ -270,54 +211,55 @@ function countsEn(bars: number, strokes: number, segments: number, hubs: number,
 }
 
 const zh: Copy = {
+  workspaceLabel: '技术研判',
   symbol: '标的',
   timeframe: '周期',
   tfD: '日线',
   tfW: '周线',
   otherSymbol: '代码',
-  read: '读取',
-  methods: '怎么看',
+  read: '查询',
+  methods: '研究口径',
   close: '关闭',
   level: '层级',
-  levelBi: '按笔看',
-  levelSeg: '按线段看',
+  levelBi: '笔中枢',
+  levelSeg: '线段中枢',
   hubs: '缠论状态',
-  skip: '跳到震荡区间列表',
+  skip: '跳到技术研判',
   tfGroup: '周期',
   layerGroup: '图层',
   showAll: '全显',
   hideAll: '全隐',
-  fitAll: '看全部',
+  fitAll: '全部历史',
   fitAllTip: '显示全部历史 K 线。',
   stateBi: '最近一笔',
   stateSeg: '当前线段',
-  stateZs: '震荡区间',
-  stateCount: '图上有',
+  stateZs: '最近中枢',
+  stateCount: '样本结构',
   dirUp: '向上',
   dirDown: '向下',
   confirmed: '已经确认',
   unconfirmed: '尚未确认',
-  noneStruct: '还没有',
-  priceAbove: '现价在震荡区间上方',
-  priceInside: '现价在震荡区间里',
-  priceBelow: '现价在震荡区间下方',
+  noneStruct: '尚未形成',
+  priceAbove: '末根收盘位于中枢上方',
+  priceInside: '末根收盘位于中枢内部',
+  priceBelow: '末根收盘位于中枢下方',
   priorBi: (count) => `此前 ${count} 笔已确认`,
   intradayNote: (label) => `样例没有 ${label} K 线，不能拆得更细。图上仍是日线，没有编造价格。`,
   quoteHint: '公开行情按来源依次请求，失败不会编造价格，也不会自动改用教学样例。',
   placeholder: '300308 或 AAPL',
   langButton: 'EN',
   langLabel: '切换到英文',
-  advice: '只供学习，不是投资建议，没有实盘下单。这是一套写明的缠论实现，门派并不相同。',
+  advice: '仅供技术研究，不构成投资建议。行情可能延迟；本站不提供交易执行。',
   footerBefore: '图表组件是 ',
   footerName: 'TradingView Lightweight Charts™',
   footerAfter: '（Apache-2.0），由 TradingView, Inc. 开发。本站与 TradingView 没有隶属关系，没有使用 Charting Library，也没有商业授权。',
   loading: (symbol, timeframe) => `正在请求 ${symbol} 的公开${timeframe}…`,
-  quoteFail: '公开行情没有可用的 K 线。下面列出了各来源的原因。没有编造价格，也没有自动改用教学样例。',
+  quoteFail: '暂未取得所请求行情。已载入的图表将予以保留，标的与周期不变；未载入时保持空白。',
   emptySymbol: '先写一个代码，例如 300308 或 AAPL。',
   badSymbol: '代码只能包含字母、数字和点。',
-  noHubTitle: '还没有形成震荡区间',
-  noHubBody: '先会出现高低转折和“笔”。要等至少三笔（或三段）的价格区间发生重叠，并且上沿高于下沿，才会形成震荡区间（中枢）。',
-  lastBar: (stamp) => `最后一根 ${stamp}`,
+  noHubTitle: '当前层级暂无有效中枢',
+  noHubBody: '当前样本尚未满足同层级连续三笔或三段严格重叠的中枢条件。',
+  lastBar: (stamp) => `K线日期 ${stamp}`,
   notRealtime: '非实时',
   teachingPrices: '教学价格，不是成交',
   maybeDelayed: '可能延迟',
@@ -328,7 +270,7 @@ const zh: Copy = {
       : `请求周期 ${requested}，实际周期 ${actual}。样例没有该周期的 K 线，没有编造价格。`,
   intradayDisabled: '样例没有分钟 K 线，不能选择 5m、15m、30m 或 1h，也不会编造更细的价格。',
   emptyWeekly: (bars, strokes) =>
-    `周线由日线按 UTC 自然周聚合，目前 ${bars} 根、${strokes} 笔。没有补画笔或震荡区间。至少三笔重叠且上沿高于下沿，才会形成震荡区间（中枢）。`,
+    `周线样本共 ${bars} 根 K 线、${strokes} 笔，尚未满足中枢条件：至少三笔区间严格重叠。`,
   emptyNeedBi: (bars, strokes) =>
     `当前 ${bars} 根 K 线、${strokes} 笔。震荡区间至少要三笔价格区间重叠，而且上沿必须高于下沿。没有补画笔或震荡区间。`,
   emptyNeedSeg: (segments, finished) =>
@@ -342,12 +284,12 @@ const zh: Copy = {
   provenanceLesson: '本地样例',
   provenanceQuote: '公开行情',
   lessonTfHint: '样例只有日线和周线。',
-  summary: '现在怎样',
-  hubListTitle: '震荡区间',
+  summary: '结构研判',
+  hubListTitle: '中枢档案',
   currentHub: '当前震荡区间',
   latestHub: '最近的震荡区间',
   selected: '已选',
-  latestTag: '当前',
+  latestTag: '最近',
   selectedTag: '已选',
   buy: '三买',
   sell: '三卖',
@@ -371,8 +313,8 @@ const zh: Copy = {
   status: (status, extended, level) => {
     if (status === 'left-up') return '已向上离开';
     if (status === 'left-down') return '已向下离开';
-    if (extended) return '延伸中，还没有被离开';
-    return level === 'bi' ? '核心三笔，还没有被离开' : '核心三段，还没有被离开';
+    if (extended) return '中枢延伸，尚无结构性离开';
+    return level === 'bi' ? '三笔重叠，尚无结构性离开' : '三段重叠，尚无结构性离开';
   },
   marketA: 'A股',
   marketUs: '美股',
@@ -381,19 +323,19 @@ const zh: Copy = {
   quoteBoard: '行情',
   fieldLast: '最新',
   fieldChange: '涨跌',
-  fieldOpen: '开',
-  fieldHigh: '高',
-  fieldLow: '低',
-  fieldClose: '收',
-  fieldVolume: '量',
+  fieldOpen: '开盘',
+  fieldHigh: '最高',
+  fieldLow: '最低',
+  fieldClose: '末根收盘',
+  fieldVolume: '成交量',
   fieldCurrency: '货币',
   fieldSource: '来源',
   fieldDelay: '延迟',
-  fieldTime: '时间',
+  fieldTime: 'K线日期',
   delayedYes: '延迟',
   delayedUnknown: '可能延迟',
   loadLesson: '载入教学样例',
-  emptyQuote: '还没有可用的行情。公开来源失败时，不会自动改用教学价格。',
+  emptyQuote: '暂无可用行情。公开数据不可用时保留空缺，不以教学样例替代。',
   maLayer: 'MA',
   legendMa: 'MA(5/10/20)',
   legendVol: '成交量',
@@ -402,18 +344,18 @@ const zh: Copy = {
   strokeLabel: '笔',
   segmentLabel: '线段',
   hubLabel: '震荡区间',
-  tabChart: '图',
+  tabChart: '走势图',
   tabWatch: '自选',
-  tabDock: '行情',
+  tabDock: '行情与研判',
   liveBlurb: '这是公开行情，不是样例。震荡区间按同一套规则现算。',
-  methodsTitle: '怎么看这张图',
+  methodsTitle: '研究口径与数据说明',
   reading: readingZh,
   stageReading: stageReadingZh,
   hubTitle: hubTitleZh,
   counts: countsZh,
   layerBi: '笔',
   layerSeg: '线段',
-  layerZs: '震荡区',
+  layerZs: '中枢',
   layerBsp: '买卖点',
   tipBi: '笔：相邻高低点连成的一小段走势。',
   tipSeg: '线段：由几笔组成的更大一段走势。',
@@ -422,81 +364,41 @@ const zh: Copy = {
   tipLevelBi: '用“笔”来找震荡区间。',
   tipLevelSeg: '用“线段”来找震荡区间。',
   methodSections: [
-    {
-      heading: '这些词是什么意思',
-      paragraphs: [
-        '笔：把相邻的一个高点和一个低点连起来，是图上较短的一段走势。最后一笔常会再被后面的 K 线拉长，所以还没确认时画成虚线。',
-        '线段：由连续几笔组成的更大一段走势。',
-        '震荡区间（中枢）：价格来回走、高低重叠出来的一段区域。上沿是这段重叠里较低的那个高点，下沿是较高的那个低点。',
-        '按笔看 / 按线段看：用“笔”或“线段”去找这样的震荡区间，不是两套不同的行情。',
-        '三买 / 三卖：价格离开震荡区间之后的结构标注，只供对照，不是下单建议。',
-      ],
-    },
-    {
-      heading: '这是用来研究和把玩的',
-      paragraphs: [
-        '股票是一场谁有钱、谁有货的游戏。中枢是目的，分型、笔、线段和买卖点都只是看见中枢的手段。',
-      ],
-    },
-    {
-      heading: '界限',
-      paragraphs: [
-        '这是研究和把玩用的台子，不是投资建议。它不连接券商，不下单，也不承诺收益。',
-        '三买、三卖只是结构标注，用小号文字标在图上，不是交易信号。',
-      ],
-    },
-    {
-      heading: '数据',
-      paragraphs: [
-        '三套样例是仓库里的日线 OHLC，转折是排出来的，好让中枢看得清。它们不是某只股票的成交。样例没有 5 分钟、15 分钟、30 分钟和 1 小时 K 线。点这些周期不会拆出新价格，图上仍是日线。',
-        'A 股优先请求腾讯 / ifzq，失败再试东方财富。美股先试东方财富，再试 Yahoo，浏览器跨域拦住时最后再试 allorigins 代理的 Yahoo；日线还可再试 Stooq。没有密钥，也没有付费终端。不会使用已经损坏的腾讯美股历史（例如只有 2011 与 2026 两根的返回）。',
-        '拦住、超时或返回不可用的 K 线时，页面写明每个来源的原因。不会编造价格，也不会自动改用教学样例。需要时可以按按钮载入教学样例。',
-        '不完整的 K 线会被丢掉，不会被改写。没有任何一条价格是补出来的。成交量只在来源提供时显示。MACD 和均线是由收盘价计算的指标，不是缠论。',
-        '样例的周线是把日线按 UTC 自然周收成一根，不是交易所日历，也不是另一份行情。公开行情的时间戳保持来源原样，不换算成交易所时区。',
-      ],
-    },
-    {
-      heading: '这一套算法',
-      paragraphs: [
-        '先做包含。两根 K 线的高低区间互相包住时合成一根。前面已经有方向时，向上取较高的高点和较高的低点，向下取较低的高点和较低的低点。只有一根时，用新 K 线相对它来定方向。高低都相同，按向下处理。只从前向后扫一遍。',
-        '分型看合并后的 K 线。顶分型要求中间的高点和低点都严格高于左右两根。底分型相反。相等不算。',
-        '笔连接一顶一底。两个分型的中心至少隔 4 根合并 K 线，也就是中间至少有一根不属于这两个分型。向上笔的顶必须是这段里唯一的最高点，底必须是唯一的最低点。同向分型只留更极端的那个，笔可以因此延伸。',
-        '线段用特征序列。向上线段把向下笔当作元素，出现没有缺口的顶分型时，线段结束在这个分型中间元素的前一笔。向下线段看底分型。第一、二元素若有缺口——向上时第二元素整个在第一元素上方，向下时整个在下方——这个分型不结束线段。走到末尾还没有分型，就留下一段未完成线段，图上用虚线。不足三笔，没有线段。第一段的方向取第一笔的方向，这是一个明确的取舍：图可能从一段走势的中途开始。段的高低取成员笔的全部波动，不只是两个端点。',
-        '震荡区间（中枢）是连续至少三笔，或连续至少三段，价格区间的重叠。上沿（ZG）是这三笔高点里的最低值，下沿（ZD）是低点里的最高值，而且必须上沿高于下沿。只贴住一个价，不算震荡区间。后面的笔如果还和 [下沿, 上沿] 相交，区间延伸：上沿、下沿不改，区间最高（GG）、区间最低（DD）记下全体成员的最高和最低。整笔落在上沿之上是向上离开，整笔落在下沿之下是向下离开。离开的那一笔不算进这段震荡区间，可以成为下一段的第一笔。同一级别的震荡区间不共用成员。按笔构成和按线段构成是两层，时间上可以重叠。',
-        '三买：向上离开之后，第一段仍然整个位于上沿之上的向下笔，标在它的低点。三卖对称。这里没有 MACD 背驰，所以不标一买、二买。图上用「三买」「三卖」小号文字标出，比震荡区间轻。最后一笔画成虚线并标成尚未确认，因为它还可以延伸；更早的笔是实线，标成已经确认。线段是否确认，看特征序列有没有结束。',
-      ],
-    },
-    {
-      heading: '不是官方缠论',
-      paragraphs: [
-        '包含的方向、笔要几根 K 线、缺口算不算结束、中枢的边界，不同教材并不一样。这里只是一套前后一致、可以用样例和测试复核的实现。',
-        '三套图上的样例都还没有走出按线段构成的震荡区间。样例一和样例二各有一段未完成的线段；线段结束和缺口的规则在单元测试里用手写的笔序列核对。',
-      ],
-    },
-    {
-      heading: '参考与图表',
-      paragraphs: [
-        '步骤来自缠中说禅公开课里常见的定义。同类开源实现，例如 waditu/czsc（MIT），用了相近的顺序。本仓库的 TypeScript 是按这些规则写的，没有把第三方仓库整份搬进来。',
-        'K 线使用 TradingView Lightweight Charts™，许可证是 Apache-2.0。页脚有指向 tradingview.com 的署名。本站不使用 TradingView Charting Library，也没有它的商业授权。',
-      ],
-    },
+    { heading: '价格与指标', paragraphs: [
+      '技术研判以末根 K 线的收盘字段为基准，不以行情快照替代。MA20 为最近 20 根收盘均值，方向比较前一根均值；价格高于且均线上移定义为偏强，价格低于且均线下移定义为偏弱，其余为方向不一致。少于 21 根时不归纳趋势。',
+      '关键价位包括此前 20 根 K 线的最高、最低价（不含末根），以及当前层级最近中枢的固定上下沿。按距末根收盘的绝对百分比排序，不代表确定的支撑或阻力；涉及待确认笔或线段时单独标注。点击价位可定位样本区间并显示水平参考线。',
+      '相对量为末根成交量除以此前 20 根均量。任何一根量缺失或均量为零时不计算。末根未收定时，不应与完整周期直接比较。MACD(12,26,9)采用均值初始化 EMA，柱值为 DIF 减 DEA（未乘 2），不用于背驰判断。',
+    ] },
+    { heading: '周期与时效', paragraphs: [
+      '日线与周线独立请求公开来源，可能来自不同提供方、覆盖不同历史区间。每一栏分别披露来源、K 线日期与延迟状态；日周对照不作跨周期一致性结论。最新日线及本周周线可能更新。K 线日期是数据源标签，不是行情刷新时间。',
+      '公开行情请求失败不会影响已载入主图，也不会把日线冒充分钟线。教学样例仅支持日线及按 UTC 自然周聚合的周线，并明确标注为教学价格。',
+    ] },
+    { heading: '缠论结构', paragraphs: [
+      '计算顺序为包含处理、分型、笔、特征序列线段及中枢。同层级连续三笔或三段存在严格非零价格重叠时形成中枢；上下沿由核心三笔或三段固定，后续重叠只延伸中枢。',
+      '末笔始终按待确认处理，其端点可能随数据变化。线段确认取决于特征序列；未确认结构以虚线显示。中枢的结构性离开与末根收盘位于中枢之外，是不同判断。',
+      '三买、三卖仅是离开中枢后的结构标记，不是下单信号。本站不计算背驰，不提供一买、二买、胜率或收益预测。本实现规则固定可复核，但不代表所有缠论流派。',
+    ] },
+    { heading: '图表与署名', paragraphs: [
+      '图表使用 TradingView Lightweight Charts™（Apache-2.0），非 TradingView Charting Library。本站与 TradingView 无隶属关系。数据和结构仅供技术研究，不构成投资建议。',
+    ] },
   ],
 };
 
 const en: Copy = {
+  workspaceLabel: 'TECHNICAL RESEARCH',
   symbol: 'Symbol',
   timeframe: 'Timeframe',
   tfD: 'Daily',
   tfW: 'Weekly',
   otherSymbol: 'Symbol',
   read: 'Load',
-  methods: 'How to read',
+  methods: 'Methodology',
   close: 'Close',
   level: 'Level',
   levelBi: 'Read by strokes',
   levelSeg: 'Read by segments',
   hubs: 'Chan state',
-  skip: 'Skip to the oscillation range list',
+  skip: 'Skip to technical assessment',
   tfGroup: 'Timeframe',
   layerGroup: 'Layers',
   showAll: 'All',
@@ -506,32 +408,32 @@ const en: Copy = {
   stateBi: 'Latest stroke',
   stateSeg: 'Current segment',
   stateZs: 'Oscillation range',
-  stateCount: 'On the chart',
+  stateCount: 'Sample structure',
   dirUp: 'Up',
   dirDown: 'Down',
   confirmed: 'Confirmed',
   unconfirmed: 'Not yet confirmed',
   noneStruct: 'None yet',
-  priceAbove: 'Price is above the oscillation range',
-  priceInside: 'Price is inside the oscillation range',
-  priceBelow: 'Price is below the oscillation range',
+  priceAbove: 'Last bar close is above the hub',
+  priceInside: 'Last bar close is inside the hub',
+  priceBelow: 'Last bar close is below the hub',
   priorBi: (count) => `${count} earlier strokes are confirmed`,
   intradayNote: (label) => `This lesson has no ${label} bars, so it is not split finer. The chart stays on the daily series. No prices are invented.`,
   quoteHint: 'Public quotes are requested in source order. A failure never invents a price and never switches to a lesson by itself.',
   placeholder: '300308 or AAPL',
   langButton: '中文',
   langLabel: 'Switch to Chinese',
-  advice: 'Educational only. Not investment advice. No live orders. This is one documented Chan implementation; schools differ.',
+  advice: 'For technical research, not investment advice. Quotes may be delayed. No trade execution.',
   footerBefore: 'Charts by ',
   footerName: 'TradingView Lightweight Charts™',
   footerAfter: ' (Apache-2.0), created by TradingView, Inc. This desk is not affiliated with TradingView, does not use the Charting Library, and holds no commercial license.',
   loading: (symbol, timeframe) => `Requesting the public ${timeframe} series for ${symbol}…`,
-  quoteFail: 'The public quote returned no usable bars. Each source is listed below. No price was invented, and the chart did not fall back to a lesson by itself.',
+  quoteFail: 'The requested quote is unavailable. Any existing chart is retained with its original symbol and timeframe; otherwise the chart remains empty.',
   emptySymbol: 'Enter a symbol first, such as 300308 or AAPL.',
   badSymbol: 'Use letters, digits, and dots only.',
   noHubTitle: 'No oscillation range has formed yet',
   noHubBody: 'High and low turns, then “strokes,” appear first. An oscillation range (hub) forms only after at least three strokes (or three segments) overlap, and the upper edge is above the lower edge.',
-  lastBar: (stamp) => `Last bar ${stamp}`,
+  lastBar: (stamp) => `Bar date ${stamp}`,
   notRealtime: 'Not live',
   teachingPrices: 'Teaching prices, not prints',
   maybeDelayed: 'May be delayed',
@@ -542,7 +444,7 @@ const en: Copy = {
       : `Requested ${requested}, showing ${actual}. This lesson has no bars at that interval, and no prices were invented.`,
   intradayDisabled: 'Lessons have no minute bars. 5m, 15m, 30m, and 1h cannot be selected, and no finer prices are invented.',
   emptyWeekly: (bars, strokes) =>
-    `Weekly bars fold the daily lesson by UTC week. This series has ${bars} bars and ${strokes} strokes. No strokes or oscillation ranges were invented. A range still needs three overlapping strokes, with the upper edge above the lower edge.`,
+    `The weekly sample contains ${bars} bars and ${strokes} strokes. A hub requires a strict overlap across at least three strokes.`,
   emptyNeedBi: (bars, strokes) =>
     `This stretch has ${bars} bars and ${strokes} strokes. An oscillation range needs at least three overlapping strokes, and the upper edge must be above the lower edge. No strokes or ranges were invented.`,
   emptyNeedSeg: (segments, finished) =>
@@ -556,12 +458,12 @@ const en: Copy = {
   provenanceLesson: 'Local lesson',
   provenanceQuote: 'Public quote',
   lessonTfHint: 'Lessons only have daily and weekly bars.',
-  summary: "What's happening",
+  summary: 'Structure assessment',
   hubListTitle: 'Oscillation ranges',
   currentHub: 'Current oscillation range',
   latestHub: 'Latest oscillation range',
   selected: 'Selected',
-  latestTag: 'Now',
+  latestTag: 'Latest',
   selectedTag: 'Selected',
   buy: '3rd buy',
   sell: '3rd sell',
@@ -598,12 +500,12 @@ const en: Copy = {
   fieldOpen: 'Open',
   fieldHigh: 'High',
   fieldLow: 'Low',
-  fieldClose: 'Close',
+  fieldClose: 'Last bar close',
   fieldVolume: 'Volume',
   fieldCurrency: 'Currency',
   fieldSource: 'Source',
   fieldDelay: 'Delay',
-  fieldTime: 'Time',
+  fieldTime: 'Bar date',
   delayedYes: 'Delayed',
   delayedUnknown: 'May be delayed',
   loadLesson: 'Load a teaching lesson',
@@ -618,9 +520,9 @@ const en: Copy = {
   hubLabel: 'Oscillation range',
   tabChart: 'Chart',
   tabWatch: 'Watch',
-  tabDock: 'Quote',
+  tabDock: 'Quote & analysis',
   liveBlurb: 'This is a public quote, not a lesson. Oscillation ranges are computed with the same rules.',
-  methodsTitle: 'How to read this chart',
+  methodsTitle: 'Methodology & data notes',
   reading: readingEn,
   stageReading: stageReadingEn,
   hubTitle: hubTitleEn,
@@ -636,64 +538,23 @@ const en: Copy = {
   tipLevelBi: 'Find oscillation ranges from “strokes.”',
   tipLevelSeg: 'Find oscillation ranges from “segments.”',
   methodSections: [
-    {
-      heading: 'What these words mean',
-      paragraphs: [
-        'Stroke: a short move on the chart that joins a neighboring high and a neighboring low. The last stroke is often extended by later bars, so it is drawn dashed until it is confirmed.',
-        'Segment: a larger move made of several consecutive strokes.',
-        'Oscillation range (hub): a band where price has overlapped back and forth. The upper edge is the lowest of those highs; the lower edge is the highest of those lows.',
-        'Read by strokes / Read by segments: these use strokes or segments to find that oscillation range. They are not two different quotes.',
-        'Third-class buy / third-class sell: structural labels after price leaves an oscillation range. They are for comparison only, not order advice.',
-      ],
-    },
-    {
-      heading: 'This is for study and play',
-      paragraphs: [
-        'A stock is a game of who has the money and who has the shares. The hub is the aim; fractals, strokes, segments, and buy or sell labels are only ways to see it.',
-      ],
-    },
-    {
-      heading: 'Limits',
-      paragraphs: [
-        'This desk is for study and play. It is not investment advice. It does not connect to a broker, send orders, or promise a result.',
-        'Third-class buy and sell labels are structural notes, written as small text on the chart. They are not trade signals.',
-      ],
-    },
-    {
-      heading: 'Data',
-      paragraphs: [
-        'The three lessons are daily OHLC shipped in this repo. The turns are arranged so a hub can be seen. They are not prints from a listed stock. The lessons have no 5-minute, 15-minute, 30-minute, or 1-hour bars. Those chips do not invent a finer series. The chart stays daily.',
-        'A-shares try Tencent / ifzq first, then Eastmoney. US symbols try Eastmoney, then Yahoo, then Yahoo through the allorigins browser proxy if CORS blocks the direct call; daily bars may still try Stooq. There is no API key and no paid terminal. The broken Tencent US history (for example a 2011 bar and a 2026 bar) is rejected and is not used as a chart series.',
-        'On a block, a timeout, or an unusable series, the page lists each source’s reason. No price is invented, and the desk does not fall back to a teaching lesson by itself. A secondary button can load a lesson if you want one.',
-        'Incomplete bars are dropped. They are not repaired. No price is filled in. Volume is shown only when the feed supplied it. MACD and moving averages are indicators computed from closes, not Chanlun.',
-        'Weekly bars on a lesson fold the daily bars by UTC week, not by an exchange calendar. Public timestamps are kept as the source sent them.',
-      ],
-    },
-    {
-      heading: 'This implementation',
-      paragraphs: [
-        'Inclusion runs forward. When two ranges contain each other they become one bar. If a direction is already set, an up merge keeps the higher high and the higher low; a down merge keeps the lower high and the lower low. With only one bar so far, the incoming bar sets the direction. Equal highs and equal lows are treated as down.',
-        'Fractals are read on merged bars. A top needs both a strictly higher high and a strictly higher low than each neighbor. A bottom is the reverse. Equality does not count.',
-        'A stroke joins a top and a bottom. The fractal centers are at least four merged bars apart, so at least one bar between them belongs to neither fractal. The top of an up stroke is the unique highest high of the span, and the bottom is the unique lowest low. A later fractal of the same kind replaces the endpoint when it is more extreme, which is how a stroke extends.',
-        'Segments use the feature sequence. For an up segment the down strokes are the elements. An ungapped top fractal ends the segment at the with-trend stroke just before the middle element. A down segment looks for a bottom fractal. A gap — the second element entirely above the first in an up segment, or entirely below it in a down segment — does not end the segment. If the series runs out before a fractal, the tail stays unfinished and is drawn dashed. Fewer than three strokes produce no segment. The first segment takes the direction of the first stroke. That is a choice: a chart can open in the middle of a larger move. A segment’s high and low are the full excursion of its strokes, not only the two endpoints.',
-        'An oscillation range (hub) is the overlap of at least three consecutive strokes, or three consecutive segments. The upper edge (ZG) is the lowest of those highs. The lower edge (ZD) is the highest of those lows. The upper edge must be strictly above the lower edge. A single-price touch is not a range. Later swings that still intersect [lower edge, upper edge] extend the range. The upper and lower edges stay fixed. The range high (GG) and range low (DD) record the highest high and lowest low of every member. A swing entirely above the upper edge leaves upward. A swing entirely below the lower edge leaves downward. The leaving swing is not a member. It can start the next range. Ranges on the same level do not share members. Ranges built from strokes and ranges built from segments are different levels and may overlap in time.',
-        'A third-class buy is the first down stroke after an upward leave that stays entirely above the upper edge, marked at its low. A third-class sell is the mirror. There is no MACD divergence here, so first-class and second-class points are not labeled. On the chart the labels are the words for a third-class buy or sell, quieter than the oscillation range. The last stroke is drawn dashed and marked unconfirmed because it can still extend. Earlier strokes are solid and confirmed. A segment is confirmed when its feature-sequence fractal has ended it.',
-      ],
-    },
-    {
-      heading: 'Not an official Chan',
-      paragraphs: [
-        'Schools differ on inclusion direction, how many bars a stroke needs, whether a gap ends a segment, and where a hub stops. This is one consistent implementation that the lessons and the tests can check.',
-        'The three chart lessons do not reach an oscillation range built from segments. Lessons 1 and 2 each carry one unfinished segment. The ending rule and the gap rule are checked in unit tests on hand-built strokes.',
-      ],
-    },
-    {
-      heading: 'Sources and the chart',
-      paragraphs: [
-        'The order follows definitions commonly taught from the Chan Zhong Shuo Chan lessons. Open implementations such as waditu/czsc (MIT) use a similar order. The TypeScript in this repo was written to these rules. No third-party repository is vendored.',
-        'Candles are drawn with TradingView Lightweight Charts™, Apache-2.0. The footer links to tradingview.com. This desk does not use the TradingView Charting Library and does not hold a commercial license for it.',
-      ],
-    },
+    { heading: 'Price and indicator evidence', paragraphs: [
+      'The assessment uses the last bar close field, not the quote snapshot. MA20 averages the latest 20 closes. A close above a rising MA20 is classified as rising, and a close below a falling MA20 as falling. Other combinations are mixed. At least 21 bars are needed to compare adjacent averages.',
+      'Reference levels are the prior 20-bar high and low, excluding the latest bar, and the selected level’s latest hub boundaries. They are sorted by absolute percentage distance from the last close, not by strength. Provisional structure is identified. Click a level to locate its sample window and draw a horizontal reference.',
+      'Relative volume is latest volume divided by the prior 20-bar mean, omitted when any required volume is missing or the mean is zero. An unfinished bar is not comparable to a full period. MACD(12,26,9) uses SMA-seeded EMAs. Histogram = DIF − DEA, not doubled; it is not a Chan divergence test.',
+    ] },
+    { heading: 'Timeframes and freshness', paragraphs: [
+      'Daily and weekly bars are requested independently. Providers and history windows may differ. Each row discloses its source, bar date and delay status; no cross-timeframe consensus is inferred. The latest daily and weekly bars may still change. Bar dates are provider period labels, not quote refresh times.',
+      'A failed comparison does not affect the primary chart. Daily bars are never relabeled as intraday. Lessons support daily bars and UTC-calendar-week aggregation only, and are labeled as teaching prices.',
+    ] },
+    { heading: 'Chan structure', paragraphs: [
+      'Processing follows inclusion, fractals, strokes, feature-sequence segments and hubs. A hub requires a strict nonzero overlap across three consecutive swings at the same level. Its boundaries remain fixed; overlapping later swings extend it.',
+      'The final stroke is always provisional and may extend. Segment confirmation depends on the feature sequence. Provisional structure is dashed. A structural departure from a hub is distinct from the latest close lying outside it.',
+      'Third-class buy/sell labels describe structure, not orders. No divergence, first/second-class buys, win rates or return forecasts are calculated. The implementation is reproducible but does not represent every Chan interpretation.',
+    ] },
+    { heading: 'Chart attribution', paragraphs: [
+      'Charts use TradingView Lightweight Charts™ (Apache-2.0), not the TradingView Charting Library. This site is not affiliated with TradingView. Data and structure are for technical research, not investment advice.',
+    ] },
   ],
 };
 
