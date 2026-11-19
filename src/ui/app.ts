@@ -1,5 +1,6 @@
-import { DeskChart } from '../chart/desk-chart.ts';
+import { DeskChart, structureSwingLabels } from '../chart/desk-chart.ts';
 import type { ChartLabels } from '../chart/hub-primitive.ts';
+import { computeMacd, computeSma, volumePoints } from '../data/indicators.ts';
 import { applyTimeframe, type Timeframe } from '../data/resample.ts';
 import {
   applyLayerVisibility,
@@ -9,19 +10,48 @@ import {
   resolveShownTimeframe,
 } from './clarity.ts';
 import { fixtureById, fixtures, type Fixture } from '../data/fixtures.ts';
-import { fetchPublicQuote, QuoteError } from '../data/quote.ts';
+import {
+  fetchPublicQuote,
+  mapSymbol,
+  QuoteError,
+  type MarketKind,
+  type PublicQuote,
+  type QuoteSource,
+} from '../data/quote.ts';
 import { analyze } from '../engine/analyze.ts';
 import { priceBand } from '../engine/readout.ts';
 import type { Analysis, Bar, Hub, HubLevel, Mark } from '../engine/types.ts';
-import { formatDay, formatPrice } from '../format.ts';
+import { formatChange, formatDay, formatPercent, formatPrice, formatVolume } from '../format.ts';
 import { copy, type Lang } from '../i18n.ts';
 
 interface LiveSource {
   symbol: string;
-  source: 'yahoo' | 'stooq';
+  source: QuoteSource;
+  name?: string;
 }
 
-const LIVE_PRESETS = ['AAPL', 'MSFT', '0700.HK'];
+interface WatchSnapshot {
+  name?: string;
+  last?: number;
+  changePercent?: number;
+}
+
+const WATCHLIST: Array<{ symbol: string; market: MarketKind }> = [
+  { symbol: '600519', market: 'ashare' },
+  { symbol: '000001', market: 'ashare' },
+  { symbol: '300750', market: 'ashare' },
+  { symbol: '688772', market: 'ashare' },
+  { symbol: 'AAPL', market: 'us' },
+  { symbol: 'MSFT', market: 'us' },
+  { symbol: 'NVDA', market: 'us' },
+  { symbol: 'TSLA', market: 'us' },
+];
+
+const MA_LINES = [
+  { period: 5, color: '#e6d7a8' },
+  { period: 10, color: '#5b8def' },
+  { period: 20, color: '#c084fc' },
+] as const;
 
 function must<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -36,8 +66,22 @@ function element(tag: string, className?: string, text?: string): HTMLElement {
   return node;
 }
 
+function sourceName(source: QuoteSource): string {
+  switch (source) {
+    case 'tencent':
+      return 'Tencent';
+    case 'eastmoney':
+      return 'Eastmoney';
+    case 'yahoo':
+      return 'Yahoo';
+    case 'yahoo-allorigins':
+      return 'Yahoo / allorigins';
+    case 'stooq':
+      return 'Stooq';
+  }
+}
+
 export function startDesk(): void {
-  const symbolSelect = must<HTMLSelectElement>('symbol');
   const quoteForm = must<HTMLFormElement>('quote-form');
   const customSymbol = must<HTMLInputElement>('custom-symbol');
   const langButton = must<HTMLButtonElement>('lang');
@@ -64,28 +108,41 @@ export function startDesk(): void {
   const layerSeg = must<HTMLButtonElement>('layer-seg');
   const layerZs = must<HTMLButtonElement>('layer-zs');
   const layerBsp = must<HTMLButtonElement>('layer-bsp');
+  const layerMa = must<HTMLButtonElement>('layer-ma');
+  const marketA = must<HTMLButtonElement>('market-ashare');
+  const marketUs = must<HTMLButtonElement>('market-us');
+  const watchItems = must<HTMLElement>('watch-items');
+  const quoteBoard = must<HTMLElement>('quote-board');
   const tfButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tf]'));
   const callout = must<HTMLElement>('callout');
   const hubList = must<HTMLElement>('hub-list');
   const selectStatus = must<HTMLElement>('select-status');
   const footerChart = must<HTMLElement>('footer-chart');
   const footerAdvice = must<HTMLElement>('footer-advice');
-  const quoteHint = must<HTMLElement>('quote-hint');
+  const desk = must<HTMLElement>('desk');
+  const tabChart = must<HTMLButtonElement>('tab-chart');
+  const tabWatch = must<HTMLButtonElement>('tab-watch');
+  const tabDock = must<HTMLButtonElement>('tab-dock');
   const stage = must<HTMLElement>('chart').closest('section');
 
   let lang: Lang = 'zh';
-  let fixtureId = fixtures[0].id;
+  const fixtureId = fixtures[0].id;
   let live: LiveSource | null = null;
+  let lastQuote: PublicQuote | null = null;
+  let market: MarketKind = 'ashare';
   let timeframe: Timeframe = 'D';
   let level: HubLevel = 'bi';
   let layers = { bi: true, seg: true, zs: true, bsp: true };
+  let showMa = false;
   let selectedId: string | null = null;
-  let rawBars: Bar[] = fixtures[0].bars;
-  let shownBars: Bar[] = fixtures[0].bars;
+  let rawBars: Bar[] = [];
+  let shownBars: Bar[] = [];
   let analysis: Analysis = analyze(rawBars);
   let requestSerial = 0;
   let fitNext = true;
   let failedSymbol: string | null = null;
+  let mobilePanel: 'chart' | 'watch' | 'dock' = 'chart';
+  const watchCache = new Map<string, WatchSnapshot>();
 
   const chart = new DeskChart(chartHost, (id) => {
     selectedId = selectedId === id ? null : id;
@@ -129,40 +186,31 @@ export function startDesk(): void {
 
   function adoptLesson(nextRaw: Bar[], fit: boolean): void {
     live = null;
+    lastQuote = null;
     shownTimeframe();
     useBars(nextRaw, fit);
   }
 
-  function labels(): ChartLabels {
-    const ui = text();
-    return { latest: ui.latestTag, selected: ui.selectedTag, zg: ui.zg, zd: ui.zd, buy: ui.buy, sell: ui.sell };
+  function loadLesson(): void {
+    requestSerial += 1;
+    failedSymbol = null;
+    notice = { kind: 'none' };
+    adoptLesson(currentFixture().bars, true);
   }
 
-  function fillSymbolOptions(): void {
-    const previous = symbolSelect.value;
-    symbolSelect.replaceChildren();
-    const lessons = document.createElement('optgroup');
-    lessons.label = lang === 'zh' ? '样例' : 'Lessons';
-    for (const fixture of fixtures) {
-      const option = document.createElement('option');
-      option.value = `fixture:${fixture.id}`;
-      option.textContent = fixture.title[lang];
-      lessons.append(option);
-    }
-    const quotes = document.createElement('optgroup');
-    quotes.label = lang === 'zh' ? '公开行情' : 'Public quote';
-    const liveSymbols = live && !LIVE_PRESETS.includes(live.symbol) ? [...LIVE_PRESETS, live.symbol] : LIVE_PRESETS;
-    for (const symbol of liveSymbols) {
-      const option = document.createElement('option');
-      option.value = `live:${symbol}`;
-      option.textContent = symbol;
-      quotes.append(option);
-    }
-    symbolSelect.append(lessons, quotes);
-    const desired = live ? `live:${live.symbol}` : `fixture:${fixtureId}`;
-    const hasDesired = Array.from(symbolSelect.options).some((option) => option.value === desired);
-    symbolSelect.value = hasDesired ? desired : previous;
-    if (symbolSelect.value === '') symbolSelect.value = `fixture:${fixtureId}`;
+  function labels(): ChartLabels {
+    const ui = text();
+    return {
+      latest: ui.latestTag,
+      selected: ui.selectedTag,
+      zg: ui.zg,
+      zd: ui.zd,
+      buy: ui.buy,
+      sell: ui.sell,
+      hub: ui.hubLabel,
+      stroke: ui.strokeLabel,
+      segment: ui.segmentLabel,
+    };
   }
 
   function applyStaticCopy(): void {
@@ -180,8 +228,13 @@ export function startDesk(): void {
     methodsButton.textContent = ui.methods;
     methodsClose.textContent = ui.close;
     must<HTMLButtonElement>('quote-submit').textContent = ui.read;
-    quoteHint.textContent = ui.quoteHint;
     customSymbol.placeholder = ui.placeholder;
+    marketA.textContent = ui.marketA;
+    marketUs.textContent = ui.marketUs;
+    marketA.parentElement?.setAttribute('aria-label', ui.marketGroup);
+    tabChart.textContent = ui.tabChart;
+    tabWatch.textContent = ui.tabWatch;
+    tabDock.textContent = ui.tabDock;
     const skip = document.querySelector('.skip');
     if (skip) skip.textContent = ui.skip;
     footerAdvice.textContent = ui.advice;
@@ -191,7 +244,6 @@ export function startDesk(): void {
     link.rel = 'noreferrer noopener';
     link.textContent = ui.footerName;
     footerChart.replaceChildren(document.createTextNode(ui.footerBefore), link, document.createTextNode(ui.footerAfter));
-    fillSymbolOptions();
     if (dialog.open) renderMethods();
   }
 
@@ -231,6 +283,15 @@ export function startDesk(): void {
       lines.push(...notice.reasons);
     }
     banner.replaceChildren(...lines.filter(Boolean).map((line) => element('p', undefined, line)));
+    if (notice.kind === 'fail' && notice.headline === 'quote') {
+      const actions = element('div', 'banner-actions');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = ui.loadLesson;
+      button.addEventListener('click', () => loadLesson());
+      actions.append(button);
+      banner.append(actions);
+    }
   }
 
   function useBars(nextRaw: Bar[], fit: boolean): void {
@@ -253,25 +314,27 @@ export function startDesk(): void {
     const shown = shownTimeframe();
     const requested = timeframeWords(shown, ui);
     if (live) {
-      const sourceName = live.source === 'yahoo' ? 'Yahoo' : 'Stooq';
-      sourceLine.textContent = `${ui.provenanceQuote} · ${sourceName} · ${live.symbol}`;
-    } else if (failedSymbol) {
+      const named = lastQuote?.name ? ` · ${lastQuote.name}` : '';
+      sourceLine.textContent = `${ui.provenanceQuote} · ${sourceName(live.source)} · ${live.symbol}${named}`;
+    } else if (failedSymbol && shownBars.length === 0) {
       sourceLine.textContent = ui.fallbackLesson(failedSymbol);
+    } else if (shownBars.length === 0) {
+      sourceLine.textContent = ui.emptyQuote;
     } else {
       sourceLine.textContent = `${ui.provenanceLesson} · ${ui.teachingPrices}`;
     }
     const parts = [ui.timeframeLine(requested, requested)];
-    if (!live) parts.push(ui.lessonTfHint);
-    if (!live && shown === 'W') parts.push(ui.weeklyNote);
+    if (!live && shownBars.length > 0) parts.push(ui.lessonTfHint);
+    if (!live && shown === 'W' && shownBars.length > 0) parts.push(ui.weeklyNote);
     timeframeLine.textContent = parts.join(' ');
     const stamp = lastBarClock(shownBars[shownBars.length - 1], shown);
     if (stamp) {
       const tags = [ui.lastBar(stamp), ui.notRealtime];
-      if (live) tags.push(ui.maybeDelayed);
+      if (live) tags.push(lastQuote?.delayed ? ui.delayedYes : ui.maybeDelayed);
       else tags.push(ui.teachingPrices);
       freshnessLine.textContent = tags.join(' · ');
     } else {
-      freshnessLine.textContent = ui.notRealtime;
+      freshnessLine.textContent = shownBars.length === 0 ? '' : ui.notRealtime;
     }
   }
 
@@ -280,14 +343,17 @@ export function startDesk(): void {
     legend.setAttribute('aria-label', ui.legend);
     legend.replaceChildren();
     const items: Array<{ swatch: string; color?: string; text: string; mark?: string }> = [
-      { swatch: 'swatch', color: '#f4f4f4', text: ui.legendBi },
-      { swatch: 'swatch is-dashed', color: '#f4f4f4', text: ui.legendBiOpen },
+      { swatch: 'swatch', color: '#f3f4f6', text: ui.legendBi },
+      { swatch: 'swatch is-dashed', color: '#f3f4f6', text: ui.legendBiOpen },
       { swatch: 'swatch', color: '#5b8def', text: ui.legendSeg },
       { swatch: 'swatch is-dashed', color: '#5b8def', text: ui.legendSegOpen },
       { swatch: 'swatch is-hub', text: ui.legendZs },
       { swatch: 'swatch is-mark', text: ui.buy, mark: ui.buy },
       { swatch: 'swatch is-mark', text: ui.sell, mark: ui.sell },
     ];
+    if (showMa) items.push({ swatch: 'swatch', color: '#e6d7a8', text: ui.legendMa });
+    if (volumePoints(shownBars).length > 0) items.push({ swatch: 'swatch', color: '#26c6b0', text: ui.legendVol });
+    if (computeMacd(shownBars).length > 0) items.push({ swatch: 'swatch', color: '#d6c07a', text: ui.legendMacd });
     for (const item of items) {
       const row = document.createElement('li');
       const sample = document.createElement('span');
@@ -300,6 +366,83 @@ export function startDesk(): void {
     }
   }
 
+  function toneClass(value: number | undefined): string {
+    if (!Number.isFinite(value) || value === 0 || value === undefined) return '';
+    return value > 0 ? 'is-up' : 'is-down';
+  }
+
+  function renderWatchlist(): void {
+    const active = live?.symbol ?? (shownBars.length && !live ? '' : '');
+    const current = live?.symbol ?? customSymbol.value.trim().toUpperCase();
+    watchItems.replaceChildren();
+    for (const item of WATCHLIST) {
+      if (market !== 'other' && item.market !== market) continue;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'watch-item';
+      const mapped = mapSymbol(item.symbol);
+      const snapshot = watchCache.get(mapped.display) ?? watchCache.get(item.symbol);
+      if (live && (live.symbol === mapped.display || live.symbol === item.symbol || current === mapped.display)) {
+        button.classList.add('is-active');
+      }
+      void active;
+      const code = element('span', 'watch-code', mapped.display);
+      const change = document.createElement('span');
+      change.className = `watch-change ${toneClass(snapshot?.changePercent)}`;
+      change.textContent = snapshot && Number.isFinite(snapshot.changePercent) ? formatPercent(snapshot.changePercent as number) : '';
+      button.append(code, change);
+      if (snapshot?.name) button.append(element('span', 'watch-name', snapshot.name));
+      button.addEventListener('click', () => {
+        customSymbol.value = item.symbol;
+        void loadLive(item.symbol);
+      });
+      watchItems.append(button);
+    }
+  }
+
+  function quoteField(term: string, value: string): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.append(element('dt', undefined, term), element('dd', undefined, value));
+    return wrap;
+  }
+
+  function renderQuoteBoard(): void {
+    const ui = text();
+    quoteBoard.replaceChildren();
+    if (!lastQuote || !live) {
+      const empty = element('div', 'empty-quote');
+      empty.append(element('p', 'meta', shownBars.length === 0 ? ui.emptyQuote : ui.teachingPrices));
+      quoteBoard.append(empty);
+      return;
+    }
+    const quote = lastQuote;
+    const head = element('div', 'quote-head');
+    const title = [quote.display, quote.name].filter(Boolean).join(' · ');
+    head.append(element('strong', undefined, title));
+    quoteBoard.append(head);
+    if (Number.isFinite(quote.last)) {
+      const last = element('div', `quote-last ${toneClass(quote.change)}`, formatPrice(quote.last as number));
+      quoteBoard.append(last);
+    }
+    const grid = document.createElement('dl');
+    grid.className = 'quote-grid';
+    if (quote.change !== undefined && quote.changePercent !== undefined) {
+      grid.append(quoteField(ui.fieldChange, `${formatChange(quote.change)}  ${formatPercent(quote.changePercent)}`));
+    }
+    if (quote.open !== undefined) grid.append(quoteField(ui.fieldOpen, formatPrice(quote.open)));
+    if (quote.high !== undefined) grid.append(quoteField(ui.fieldHigh, formatPrice(quote.high)));
+    if (quote.low !== undefined) grid.append(quoteField(ui.fieldLow, formatPrice(quote.low)));
+    const close = quote.bars[quote.bars.length - 1]?.close;
+    if (close !== undefined) grid.append(quoteField(ui.fieldClose, formatPrice(close)));
+    if (quote.volume !== undefined) grid.append(quoteField(ui.fieldVolume, formatVolume(quote.volume)));
+    if (quote.currency) grid.append(quoteField(ui.fieldCurrency, quote.currency));
+    grid.append(quoteField(ui.fieldSource, sourceName(quote.source)));
+    const stamp = lastBarClock(quote.bars[quote.bars.length - 1], quote.timeframe);
+    if (stamp) grid.append(quoteField(ui.fieldTime, stamp));
+    grid.append(quoteField(ui.fieldDelay, quote.delayed ? ui.delayedYes : ui.delayedUnknown));
+    quoteBoard.append(grid);
+  }
+
   function paint(announceSelection: boolean): void {
     renderBanner();
     const ui = text();
@@ -307,16 +450,20 @@ export function startDesk(): void {
     const hubs = activeHubs();
     const marks = activeMarks();
     const latest = hubs[hubs.length - 1];
-    studyTitle.textContent = live ? live.symbol : fixture.title[lang];
-    studyBlurb.textContent = live
-      ? lang === 'zh'
-        ? '这是公开行情，不是样例。中枢按同一套规则现算。'
-        : 'This is a public quote, not a lesson. Hubs are computed with the same rules.'
-      : fixture.blurb[lang];
+    studyTitle.textContent = live ? [live.symbol, lastQuote?.name ?? live.name].filter(Boolean).join(' · ') : fixture.title[lang];
+    studyBlurb.textContent = live ? ui.liveBlurb : shownBars.length === 0 ? ui.emptyQuote : fixture.blurb[lang];
     renderProvenance();
     renderLegend();
+    renderWatchlist();
+    renderQuoteBoard();
     levelNote.textContent =
-      level === 'bi' ? ui.levelNoteBi : analysis.segmentHubs.length === 0 ? ui.levelNoteSegEmpty : ui.levelNoteSeg;
+      shownBars.length === 0
+        ? ''
+        : level === 'bi'
+          ? ui.levelNoteBi
+          : analysis.segmentHubs.length === 0
+            ? ui.levelNoteSegEmpty
+            : ui.levelNoteSeg;
     const finished = analysis.segments.filter((segment) => segment.finished).length;
     const unfinished = analysis.segments.length - finished;
     const segmentText =
@@ -327,17 +474,19 @@ export function startDesk(): void {
       lang === 'zh'
         ? `K ${shownBars.length} · 笔 ${analysis.bi.length} · 段 ${analysis.segments.length} · 中枢 ${hubs.length} · BSP ${marks.length}`
         : `K ${shownBars.length} · BI ${analysis.bi.length} · Seg ${analysis.segments.length} · ZS ${hubs.length} · BSP ${marks.length}`;
-    structureCount.textContent = `${countLine} · ${segmentText}`;
+    structureCount.textContent = shownBars.length === 0 ? '' : `${countLine} · ${segmentText}`;
     levelBi.textContent = lang === 'zh' ? `笔级 ${analysis.biHubs.length}` : `Stroke ${analysis.biHubs.length}`;
     levelSeg.textContent = lang === 'zh' ? `段级 ${analysis.segmentHubs.length}` : `Segment ${analysis.segmentHubs.length}`;
     layerAll.textContent = ui.showAll;
     layerNone.textContent = ui.hideAll;
+    layerMa.textContent = ui.maLayer;
     const shown = shownTimeframe();
     for (const button of tfButtons) {
       const tf = button.dataset.tf;
-      const allowed = tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h' || tf === 'D' || tf === 'W'
-        ? canSelectTimeframe(tf, live !== null)
-        : false;
+      const allowed =
+        tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h' || tf === 'D' || tf === 'W'
+          ? canSelectTimeframe(tf, live !== null)
+          : false;
       button.setAttribute('aria-pressed', tf === shown ? 'true' : 'false');
       if (!allowed) {
         button.disabled = true;
@@ -353,8 +502,11 @@ export function startDesk(): void {
     layerSeg.setAttribute('aria-pressed', layers.seg ? 'true' : 'false');
     layerZs.setAttribute('aria-pressed', layers.zs ? 'true' : 'false');
     layerBsp.setAttribute('aria-pressed', layers.bsp ? 'true' : 'false');
+    layerMa.setAttribute('aria-pressed', showMa ? 'true' : 'false');
     levelBi.setAttribute('aria-pressed', level === 'bi' ? 'true' : 'false');
     levelSeg.setAttribute('aria-pressed', level === 'segment' ? 'true' : 'false');
+    marketA.setAttribute('aria-pressed', market === 'ashare' ? 'true' : 'false');
+    marketUs.setAttribute('aria-pressed', market === 'us' ? 'true' : 'false');
     chartHost.setAttribute('aria-label', ui.chartSummary(studyTitle.textContent || '', hubs.length));
     stage?.setAttribute('aria-label', lang === 'zh' ? '走势图' : 'Chart');
     chart.setLocale(lang === 'zh' ? 'zh-Hans' : 'en-US');
@@ -369,14 +521,21 @@ export function startDesk(): void {
       bi: visible.bi,
       segments: visible.segments,
       fit: fitNext,
+      ma: showMa
+        ? MA_LINES.map((line) => ({ period: line.period, color: line.color, points: computeSma(shownBars, line.period) }))
+        : [],
+      volume: volumePoints(shownBars),
+      macd: computeMacd(shownBars),
     });
     fitNext = false;
+    const labelSet = labels();
     chart.setOverlay({
       hubs: visible.hubs,
       marks: visible.marks,
       selectedId,
-      labels: labels(),
+      labels: labelSet,
       fontFamily: getComputedStyle(document.body).fontFamily || 'sans-serif',
+      swings: structureSwingLabels(visible.bi, visible.segments, labelSet),
     });
     renderState(latest);
     renderList(hubs, marks);
@@ -417,7 +576,7 @@ export function startDesk(): void {
       ),
     );
     if (!latest || close === undefined) {
-      const row = stateRow(ui.stateZs, ui.noneStruct, ui.noHubBody);
+      const row = stateRow(ui.stateZs, ui.noneStruct, shownBars.length === 0 ? ui.emptyQuote : ui.noHubBody);
       row.classList.add('is-lead');
       list.append(row);
     } else {
@@ -463,7 +622,7 @@ export function startDesk(): void {
           : reason.kind === 'need-segments'
             ? ui.emptyNeedSeg(reason.segments, reason.finished)
             : ui.emptyNeedBi(reason.bars, reason.strokes);
-      empty.append(element('p', 'meta', body));
+      empty.append(element('p', 'meta', shownBars.length === 0 ? ui.emptyQuote : body));
       hubList.append(empty);
       return;
     }
@@ -494,7 +653,9 @@ export function startDesk(): void {
         hub.extended ? ui.extended : '',
         ui.members(hub.memberIds.length, hub.level),
         hub.enterDirection === 'up' ? ui.enterUp : ui.enterDown,
-      ].filter(Boolean).join(' · ');
+      ]
+        .filter(Boolean)
+        .join(' · ');
       button.append(element('div', 'meta', detail));
       const mark = marks.find((item) => item.hubId === hub.id);
       if (mark) {
@@ -518,52 +679,57 @@ export function startDesk(): void {
     selectStatus.textContent = hub ? text().selectedAnnounce(formatPrice(hub.zd), formatPrice(hub.zg)) : '';
   }
 
+  function rememberQuote(quote: PublicQuote): void {
+    watchCache.set(quote.display, {
+      name: quote.name,
+      last: quote.last,
+      changePercent: quote.changePercent,
+    });
+  }
+
   async function loadLive(symbol: string): Promise<void> {
     const serial = ++requestSerial;
     if (stage) stage.setAttribute('aria-busy', 'true');
     notice = { kind: 'loading', symbol };
     renderBanner();
     try {
+      const mapped = mapSymbol(symbol);
+      if (mapped.market === 'ashare' || mapped.market === 'us') market = mapped.market;
       const quote = await fetchPublicQuote(symbol, timeframe);
       if (serial !== requestSerial) return;
-      live = { symbol: quote.symbol, source: quote.source };
+      live = { symbol: quote.display, source: quote.source, name: quote.name };
+      lastQuote = quote;
       failedSymbol = null;
       notice = { kind: 'none' };
-      fillSymbolOptions();
+      rememberQuote(quote);
+      customSymbol.value = quote.display;
       useBars(quote.bars, true);
     } catch (error) {
       if (serial !== requestSerial) return;
-      live = null;
-      failedSymbol = symbol;
       const reasons = error instanceof QuoteError ? error.reasons : [error instanceof Error ? error.message : 'failed'];
       const badSymbol = reasons.length === 1 && reasons[0] === 'symbol';
+      failedSymbol = badSymbol ? null : symbol;
       notice = {
         kind: 'fail',
         headline: badSymbol ? 'bad' : 'quote',
         reasons: reasons.filter((reason) => reason !== 'symbol'),
       };
-      fillSymbolOptions();
-      adoptLesson(currentFixture().bars, true);
+      if (shownBars.length === 0) {
+        live = null;
+        lastQuote = null;
+      }
+      paint(false);
     }
   }
 
-  symbolSelect.addEventListener('change', () => {
-    const value = symbolSelect.value;
-    if (value.startsWith('fixture:')) {
-      requestSerial += 1;
-      live = null;
-      failedSymbol = null;
-      fixtureId = value.slice('fixture:'.length);
-      notice = { kind: 'none' };
-      adoptLesson(currentFixture().bars, true);
-      return;
-    }
-    if (value.startsWith('live:')) {
-      const symbol = value.slice('live:'.length);
-      customSymbol.value = symbol;
-      void loadLive(symbol);
-    }
-  });
+  function setMobilePanel(next: 'chart' | 'watch' | 'dock'): void {
+    mobilePanel = next;
+    desk.classList.toggle('is-drawer-watch', next === 'watch');
+    desk.classList.toggle('is-drawer-dock', next === 'dock');
+    tabChart.setAttribute('aria-pressed', next === 'chart' ? 'true' : 'false');
+    tabWatch.setAttribute('aria-pressed', next === 'watch' ? 'true' : 'false');
+    tabDock.setAttribute('aria-pressed', next === 'dock' ? 'true' : 'false');
+  }
 
   for (const button of tfButtons) {
     button.addEventListener('click', () => {
@@ -589,6 +755,19 @@ export function startDesk(): void {
   layerSeg.addEventListener('click', () => setLayers({ ...layers, seg: !layers.seg }));
   layerZs.addEventListener('click', () => setLayers({ ...layers, zs: !layers.zs }));
   layerBsp.addEventListener('click', () => setLayers({ ...layers, bsp: !layers.bsp }));
+  layerMa.addEventListener('click', () => {
+    showMa = !showMa;
+    paint(false);
+  });
+
+  marketA.addEventListener('click', () => {
+    market = 'ashare';
+    paint(false);
+  });
+  marketUs.addEventListener('click', () => {
+    market = 'us';
+    paint(false);
+  });
 
   quoteForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -630,6 +809,12 @@ export function startDesk(): void {
     if (event.target === dialog) dialog.close();
   });
 
+  tabChart.addEventListener('click', () => setMobilePanel('chart'));
+  tabWatch.addEventListener('click', () => setMobilePanel(mobilePanel === 'watch' ? 'chart' : 'watch'));
+  tabDock.addEventListener('click', () => setMobilePanel(mobilePanel === 'dock' ? 'chart' : 'dock'));
+
+  customSymbol.value = '600519';
   applyStaticCopy();
-  useBars(rawBars, true);
+  paint(false);
+  void loadLive('600519');
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0
+
+- 终端布局：近黑全屏主图、细工具条、左侧自选、右侧行情板与缠论结论。K 线按参考图用绿涨红跌，柱体更宽。笔、线段、中枢、三买、三卖标在摆动旁。有成交量时画出量柱，MACD(12,26,9) 作为指标副图，不是缠论。可选 MA(5/10/20)。
+- 默认读取 A 股 600519 日线的公开行情，不再自动打开教学样例。A 股走腾讯 / ifzq 与东方财富；美股走东方财富、Yahoo，以及浏览器跨域时的 allorigins 代理，日线仍可再试 Stooq。不会使用损坏的腾讯美股历史，也不会编造价格。全部来源失败时列出原因，教学样例只作为二次按钮。
+- 窄屏下主图在前，自选和右侧栏收进底部面板，不为了塞进手机而缩小整台终端。
+
+## 1.1.0
+
+- Terminal layout: a nearly black full-bleed chart, a thin toolbar, a left watchlist, and a right dock with a real quote board then the Chanlun readout. Candles follow the reference coloring, green up and red down, with wider bodies. Stroke, segment, hub, and third-class labels sit next to the swings. Volume appears when the feed supplies it. MACD(12,26,9) is an indicator pane, not Chanlun. MA(5/10/20) is an optional layer.
+- The desk opens on the public daily series for A-share 600519, not a teaching lesson. A-shares try Tencent / ifzq then Eastmoney. US symbols try Eastmoney, Yahoo, and Yahoo through allorigins when the browser blocks CORS; daily bars may still try Stooq. Broken Tencent US history is rejected. No price is invented. If every source fails, the page lists the reasons; a lesson is only a secondary button.
+- On a narrow screen the chart stays first. The watchlist and the right dock collapse into a bottom panel. The desktop layout is not scaled down as a whole.
+
+
 ## 1.0.2
 
 - 样例与公开行情、实际周期、最后一根时间（UTC，取自 K 线）和失败回退写在图上。样例上的分钟周期不可选，也不会假选中。

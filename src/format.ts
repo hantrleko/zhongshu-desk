@@ -31,3 +31,21 @@ export function formatUtcDateTime(unix: number): string {
 export function formatBarClock(unix: number, withTime: boolean): string {
   return `${withTime ? formatUtcDateTime(unix) : formatDay(unix)} UTC`;
 }
+
+export function formatVolume(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (abs >= 10_000) return `${(value / 1_000).toFixed(1)}K`;
+  return String(Math.round(value));
+}
+
+export function formatChange(value: number): string {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}`;
+}
+
+export function formatPercent(value: number): string {
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}%`;
+}

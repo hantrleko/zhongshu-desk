@@ -36,6 +36,9 @@ export interface ChartLabels {
   zd: string;
   buy: string;
   sell: string;
+  hub: string;
+  stroke: string;
+  segment: string;
 }
 
 interface MediaBox {
@@ -55,9 +58,10 @@ interface MediaMark {
   y: number;
   text: string;
   anchor: 'above' | 'below';
+  tone?: 'mark' | 'swing';
 }
 
-const EMPTY_LABELS: ChartLabels = { latest: '', selected: '', zg: 'ZG', zd: 'ZD', buy: '', sell: '' };
+const EMPTY_LABELS: ChartLabels = { latest: '', selected: '', zg: 'ZG', zd: 'ZD', buy: '', sell: '', hub: '', stroke: '', segment: '' };
 
 class HubRenderer implements IPrimitivePaneRenderer {
   private readonly host: HubPrimitive;
@@ -74,7 +78,7 @@ class HubRenderer implements IPrimitivePaneRenderer {
         const top = Math.round(box.top * scope.verticalPixelRatio);
         const width = Math.max(1, Math.round(box.width * scope.horizontalPixelRatio));
         const height = Math.max(1, Math.round(box.height * scope.verticalPixelRatio));
-        ctx.fillStyle = box.selected ? 'rgba(214, 218, 224, 0.28)' : box.latest ? 'rgba(176, 182, 190, 0.22)' : 'rgba(150, 156, 166, 0.16)';
+        ctx.fillStyle = box.selected ? 'rgba(214, 218, 224, 0.22)' : box.latest ? 'rgba(176, 182, 190, 0.16)' : 'rgba(120, 130, 150, 0.10)';
         ctx.fillRect(left, top, width, height);
       }
     });
@@ -97,15 +101,16 @@ class HubRenderer implements IPrimitivePaneRenderer {
         ctx.setLineDash([5 * hx, 4 * hx]);
         ctx.strokeRect(left + 0.5, top + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
         ctx.setLineDash([]);
-        const tag = box.latest ? this.host.labels.latest : box.selected ? this.host.labels.selected : '';
-        if (tag && width > 36 * hx && height > 16 * vx) {
-          const padX = 4 * hx;
+        const parts = [this.host.labels.hub, box.latest ? this.host.labels.latest : '', box.selected ? this.host.labels.selected : ''].filter(Boolean);
+        const tag = parts.join(' · ');
+        if (tag && width > 28 * hx && height > 14 * vx) {
+          const padX = 5 * hx;
           const padY = 3 * vx;
           const textWidth = ctx.measureText(tag).width;
-          ctx.fillStyle = 'rgba(16, 20, 15, 0.9)';
-          ctx.fillRect(left + padX, top + padY, textWidth + padX * 2, 16 * vx);
-          ctx.fillStyle = '#d5d8de';
-          ctx.fillText(tag, left + padX * 2, top + padY + vx);
+          ctx.fillStyle = 'rgba(7, 8, 10, 0.88)';
+          ctx.fillRect(left + padX, top + padY, textWidth + padX * 2, 15 * vx);
+          ctx.fillStyle = '#d7dbe3';
+          ctx.fillText(tag, left + padX * 1.4, top + padY + vx);
         }
         if (width > 88 * hx && height > 40 * vx && (box.latest || box.selected)) {
           const zg = `${this.host.labels.zg} ${box.zg.toFixed(2)}`;
@@ -115,19 +120,43 @@ class HubRenderer implements IPrimitivePaneRenderer {
           ctx.fillText(zd, left + width - ctx.measureText(zd).width - 6 * hx, top + height - 16 * vx);
         }
       }
-      ctx.font = `${Math.round(12 * vx)}px ${this.host.fontFamily}`;
-      ctx.fillStyle = '#e6e1d6';
-      ctx.strokeStyle = '#c5cad3';
-      ctx.lineWidth = Math.max(1, vx);
+      ctx.font = `${Math.round(11 * vx)}px ${this.host.fontFamily}`;
+      ctx.textBaseline = 'top';
       for (const mark of this.host.markDots) {
         const x = Math.round(mark.x * hx);
         const y = Math.round(mark.y * vx);
+        const padX = 4 * hx;
+        const padY = 2 * vx;
+        const textWidth = ctx.measureText(mark.text).width;
+        const boxW = textWidth + padX * 2;
+        const boxH = 14 * vx;
+        const boxX = x + 6 * hx;
+        const boxY = mark.anchor === 'below' ? y + 6 * vx : y - boxH - 6 * vx;
+        ctx.strokeStyle = mark.tone === 'swing' ? 'rgba(180, 188, 200, 0.7)' : '#c5cad3';
+        ctx.lineWidth = Math.max(1, vx);
         ctx.beginPath();
-        ctx.moveTo(x, y - 4 * vx);
-        ctx.lineTo(x, y + 4 * vx);
+        ctx.moveTo(x, y - 3 * vx);
+        ctx.lineTo(x, y + 3 * vx);
         ctx.stroke();
-        const textY = mark.anchor === 'below' ? y + 6 * vx : y - 16 * vx;
-        ctx.fillText(mark.text, x + 5 * hx, textY);
+        ctx.fillStyle = 'rgba(7, 8, 10, 0.9)';
+        ctx.strokeStyle = mark.tone === 'swing' ? 'rgba(120, 150, 210, 0.8)' : 'rgba(200, 204, 212, 0.7)';
+        ctx.beginPath();
+        const r = 3 * Math.max(hx, vx);
+        const right = boxX + boxW;
+        const bottom = boxY + boxH;
+        ctx.moveTo(boxX + r, boxY);
+        ctx.lineTo(right - r, boxY);
+        ctx.quadraticCurveTo(right, boxY, right, boxY + r);
+        ctx.lineTo(right, bottom - r);
+        ctx.quadraticCurveTo(right, bottom, right - r, bottom);
+        ctx.lineTo(boxX + r, bottom);
+        ctx.quadraticCurveTo(boxX, bottom, boxX, bottom - r);
+        ctx.lineTo(boxX, boxY + r);
+        ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = mark.tone === 'swing' ? '#c8d4f0' : '#e8eaed';
+        ctx.fillText(mark.text, boxX + padX, boxY + padY);
       }
     });
   }
@@ -158,6 +187,7 @@ export class HubPrimitive implements ISeriesPrimitive<Time> {
 
   private hubs: DrawnHub[] = [];
   private marks: DrawnMark[] = [];
+  private swings: DrawnMark[] = [];
   private chart: SeriesAttachedParameter<Time>['chart'] | null = null;
   private series: ISeriesApi<SeriesType, Time> | null = null;
   private requestUpdate: (() => void) | undefined;
@@ -175,9 +205,10 @@ export class HubPrimitive implements ISeriesPrimitive<Time> {
     this.requestUpdate = undefined;
   }
 
-  setScene(hubs: DrawnHub[], marks: DrawnMark[], labels: ChartLabels, fontFamily: string): void {
+  setScene(hubs: DrawnHub[], marks: DrawnMark[], labels: ChartLabels, fontFamily: string, swings: DrawnMark[] = []): void {
     this.hubs = hubs;
     this.marks = marks;
+    this.swings = swings;
     this.labels = labels;
     this.fontFamily = fontFamily;
     this.requestUpdate?.();
@@ -210,7 +241,13 @@ export class HubPrimitive implements ISeriesPrimitive<Time> {
         const x = scale.timeToCoordinate(mark.time as UTCTimestamp);
         const y = this.series.priceToCoordinate(mark.price);
         if (x === null || y === null) continue;
-        markDots.push({ x, y, text: mark.label, anchor: mark.anchor });
+        markDots.push({ x, y, text: mark.label, anchor: mark.anchor, tone: 'mark' });
+      }
+      for (const mark of this.swings) {
+        const x = scale.timeToCoordinate(mark.time as UTCTimestamp);
+        const y = this.series.priceToCoordinate(mark.price);
+        if (x === null || y === null) continue;
+        markDots.push({ x, y, text: mark.label, anchor: mark.anchor, tone: 'swing' });
       }
     }
     this.boxes = boxes;

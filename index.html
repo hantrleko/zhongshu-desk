@@ -3,86 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#10140f" />
+    <meta name="theme-color" content="#07080a" />
     <meta name="description" content="中枢台 Zhongshu Desk。用来研究和把玩的缠论图台，中枢是目的。" />
     <title>中枢台</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
     <a class="skip" href="#hubs">跳到中枢列表</a>
-    <header>
+    <header class="toolbar">
       <div class="brand">
-        <p class="latin">Zhongshu Desk</p>
-        <div class="name-row">
-          <span class="hub-glyph" aria-hidden="true"></span>
-          <h1>中枢台</h1>
-        </div>
-        <p class="owner">Han Yuchen · Eugene Finance</p>
+        <span class="hub-glyph" aria-hidden="true"></span>
+        <h1>中枢台</h1>
       </div>
-      <div class="controls">
-        <div class="symbol-pair">
-          <label>
-            <span data-i18n="symbol">标的</span>
-            <select id="symbol"></select>
-          </label>
-          <form id="quote-form">
-            <label>
-              <span data-i18n="otherSymbol">其他代码</span>
-              <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="AAPL 或 0700.HK" />
-            </label>
-          </form>
-        </div>
-        <div class="control-actions">
-          <button type="submit" form="quote-form" id="quote-submit">读取</button>
-          <button type="button" id="lang">EN</button>
-          <button type="button" id="methods-open">方法说明</button>
-        </div>
-        <p id="quote-hint" class="hint"></p>
+      <form id="quote-form">
+        <label>
+          <span class="visually-hidden" data-i18n="otherSymbol">代码</span>
+          <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="600519 或 AAPL" />
+        </label>
+        <button type="submit" id="quote-submit">读取</button>
+      </form>
+      <div class="market-toggle" role="group" aria-label="Market">
+        <button type="button" id="market-ashare" data-market="ashare" aria-pressed="true">A股</button>
+        <button type="button" id="market-us" data-market="us" aria-pressed="false">美股</button>
+      </div>
+      <div class="chip-row" role="group" aria-labelledby="tf-label">
+        <span id="tf-label" class="chip-label" data-i18n="tfGroup">周期</span>
+        <button type="button" class="chip" data-tf="5m" aria-pressed="false">5m</button>
+        <button type="button" class="chip" data-tf="15m" aria-pressed="false">15m</button>
+        <button type="button" class="chip" data-tf="30m" aria-pressed="false">30m</button>
+        <button type="button" class="chip" data-tf="1h" aria-pressed="false">1h</button>
+        <button type="button" class="chip" data-tf="D" aria-pressed="true">D</button>
+        <button type="button" class="chip" data-tf="W" aria-pressed="false">W</button>
+      </div>
+      <div class="chip-row" role="group" aria-labelledby="layer-label">
+        <span id="layer-label" class="chip-label" data-i18n="layerGroup">图层</span>
+        <button type="button" class="chip" id="layer-all">全显</button>
+        <button type="button" class="chip" id="layer-none">全隐</button>
+        <button type="button" class="chip" id="layer-bi" aria-pressed="true">笔 BI</button>
+        <button type="button" class="chip" id="layer-seg" aria-pressed="true">线段 Seg</button>
+        <button type="button" class="chip" id="layer-zs" aria-pressed="true">中枢 ZS</button>
+        <button type="button" class="chip" id="layer-bsp" aria-pressed="true">买卖点 BSP</button>
+        <button type="button" class="chip" id="layer-ma" aria-pressed="false">MA</button>
+      </div>
+      <div class="chip-row" role="group" aria-labelledby="level-label">
+        <span id="level-label" class="chip-label" data-i18n="level">层级</span>
+        <button type="button" class="chip" id="level-bi" aria-pressed="true">笔级</button>
+        <button type="button" class="chip" id="level-seg" aria-pressed="false">段级</button>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" id="methods-open">方法</button>
+        <button type="button" id="lang">EN</button>
       </div>
     </header>
-    <div class="thesis">
-      <input type="checkbox" id="thesis-open" class="thesis-open" />
-      <p lang="zh">这是用来研究和把玩的：股票是一场谁有钱、谁有货的游戏。中枢是目的，分型、笔、线段和买卖点都只是看见中枢的手段。</p>
-      <p lang="en">This is for study and play. A stock is a game of who has the money and who has the shares. The hub is the aim; fractals, strokes, segments, and buy or sell labels are only ways to see it.</p>
-      <label for="thesis-open" class="thesis-more">
-        <span lang="zh" class="more">展开</span>
-        <span lang="en" class="more">More</span>
-        <span lang="zh" class="less">收起</span>
-        <span lang="en" class="less">Less</span>
-      </label>
-    </div>
-    <div class="desk">
+    <div class="desk" id="desk">
+      <nav class="watchlist" id="watchlist" aria-labelledby="watch-title">
+        <h2 id="watch-title" data-i18n="watchlist">自选</h2>
+        <div id="watch-items"></div>
+      </nav>
       <section class="stage" aria-label="Chart">
-        <div class="toolbar">
-          <div>
-            <h2 id="study-title"></h2>
-            <p id="study-blurb"></p>
-          </div>
-        </div>
-        <div class="chart-chrome">
-          <div class="chip-row" role="group" aria-labelledby="tf-label">
-            <span id="tf-label" class="chip-label" data-i18n="tfGroup">周期</span>
-            <button type="button" class="chip" data-tf="5m" aria-pressed="false">5m</button>
-            <button type="button" class="chip" data-tf="15m" aria-pressed="false">15m</button>
-            <button type="button" class="chip" data-tf="30m" aria-pressed="false">30m</button>
-            <button type="button" class="chip" data-tf="1h" aria-pressed="false">1h</button>
-            <button type="button" class="chip" data-tf="D" aria-pressed="true">D</button>
-            <button type="button" class="chip" data-tf="W" aria-pressed="false">W</button>
-          </div>
-          <div class="chip-row" role="group" aria-labelledby="layer-label">
-            <span id="layer-label" class="chip-label" data-i18n="layerGroup">图层</span>
-            <button type="button" class="chip" id="layer-all">全显</button>
-            <button type="button" class="chip" id="layer-none">全隐</button>
-            <button type="button" class="chip" id="layer-bi" aria-pressed="true">笔 BI</button>
-            <button type="button" class="chip" id="layer-seg" aria-pressed="true">线段 Seg</button>
-            <button type="button" class="chip" id="layer-zs" aria-pressed="true">中枢 ZS</button>
-            <button type="button" class="chip" id="layer-bsp" aria-pressed="true">买卖点 BSP</button>
-          </div>
-          <div class="chip-row" role="group" aria-labelledby="level-label">
-            <span id="level-label" class="chip-label" data-i18n="level">层级</span>
-            <button type="button" class="chip" id="level-bi" aria-pressed="true">笔级</button>
-            <button type="button" class="chip" id="level-seg" aria-pressed="false">段级</button>
-          </div>
+        <div class="chart-meta">
+          <h2 id="study-title"></h2>
+          <p id="study-blurb"></p>
         </div>
         <div class="provenance" id="provenance">
           <p id="source-line"></p>
@@ -97,13 +78,20 @@
         </div>
         <p id="structure-count"></p>
       </section>
-      <aside id="hubs" aria-labelledby="hubs-title">
+      <aside class="dock" id="dock">
+        <h2 id="quote-title" data-i18n="quoteBoard">行情</h2>
+        <div id="quote-board" class="quote-board"></div>
         <h2 id="hubs-title" data-i18n="summary">结论</h2>
         <div id="callout"></div>
         <p id="select-status" class="visually-hidden" aria-live="polite"></p>
         <h3 id="hub-list-title" data-i18n="hubListTitle">中枢</h3>
         <div id="hub-list"></div>
       </aside>
+    </div>
+    <div class="mobile-tabs" role="tablist" aria-label="Panels">
+      <button type="button" id="tab-chart" aria-pressed="true">图</button>
+      <button type="button" id="tab-watch" aria-pressed="false">自选</button>
+      <button type="button" id="tab-dock" aria-pressed="false">行情</button>
     </div>
     <footer>
       <p id="footer-chart"></p>
