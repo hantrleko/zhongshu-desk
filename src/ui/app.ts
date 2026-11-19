@@ -549,7 +549,7 @@ export function startDesk(): void {
     button.addEventListener('click', () => {
       const next = button.dataset.tf;
       if (next !== '5m' && next !== '15m' && next !== '30m' && next !== '1h' && next !== 'D' && next !== 'W') return;
-      const liveSymbol = session.quote?.symbol ?? (session.attempt.status === 'loading' ? session.attempt.symbol : null);
+      const liveSymbol = session.attempt.status === 'loading' ? session.attempt.symbol : session.quote?.symbol ?? null;
       if (liveSymbol) {
         void loadLive(liveSymbol, next);
         return;
