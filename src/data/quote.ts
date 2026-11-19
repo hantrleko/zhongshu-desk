@@ -71,9 +71,13 @@ export interface SymbolMap {
   currency?: string;
 }
 
+export function isValidSymbol(symbol: string): boolean {
+  return SYMBOL.test(symbol.trim());
+}
+
 export function assertSymbol(symbol: string): string {
   const trimmed = symbol.trim();
-  if (!SYMBOL.test(trimmed)) {
+  if (!isValidSymbol(trimmed)) {
     throw new QuoteError('代码只能包含字母、数字和点，最长 15 位。', ['symbol']);
   }
   return trimmed;

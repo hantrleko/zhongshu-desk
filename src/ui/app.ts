@@ -12,6 +12,7 @@ import {
 import { fixtureById, fixtures, type Fixture } from '../data/fixtures.ts';
 import {
   fetchPublicQuote,
+  isValidSymbol,
   mapSymbol,
   QuoteError,
   type MarketKind,
@@ -22,7 +23,7 @@ import { analyze } from '../engine/analyze.ts';
 import { priceBand } from '../engine/readout.ts';
 import type { Analysis, Bar, Hub, HubLevel, Mark } from '../engine/types.ts';
 import { formatChange, formatDay, formatPercent, formatPrice, formatVolume } from '../format.ts';
-import { copy, type Lang } from '../i18n.ts';
+import { copy, type Lang, type ReadingInput } from '../i18n.ts';
 
 interface LiveSource {
   symbol: string;
@@ -36,7 +37,19 @@ interface WatchSnapshot {
   changePercent?: number;
 }
 
+const SYMBOL_STORAGE_KEY = 'zhongshu-desk:symbol';
+const DEFAULT_SYMBOL = '300308';
+
+const WATCH_NAMES: Record<string, string> = {
+  '300308': '中际旭创',
+  '600519': '贵州茅台',
+  '000001': '平安银行',
+  '300750': '宁德时代',
+  '688772': '珠海冠宇',
+};
+
 const WATCHLIST: Array<{ symbol: string; market: MarketKind }> = [
+  { symbol: '300308', market: 'ashare' },
   { symbol: '600519', market: 'ashare' },
   { symbol: '000001', market: 'ashare' },
   { symbol: '300750', market: 'ashare' },
@@ -46,6 +59,39 @@ const WATCHLIST: Array<{ symbol: string; market: MarketKind }> = [
   { symbol: 'NVDA', market: 'us' },
   { symbol: 'TSLA', market: 'us' },
 ];
+
+function readStoredSymbol(): string {
+  try {
+    return localStorage.getItem(SYMBOL_STORAGE_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function persistDisplaySymbol(symbol: string): void {
+  try {
+    localStorage.setItem(SYMBOL_STORAGE_KEY, symbol);
+  } catch {
+    // Private mode or a blocked store should not stop the quote from loading.
+  }
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('symbol', symbol);
+    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // Ignore if the history API is unavailable.
+  }
+}
+
+export function bootSymbol(
+  search = typeof window === 'undefined' ? '' : window.location.search,
+  stored = typeof window === 'undefined' ? '' : readStoredSymbol(),
+): string {
+  const fromUrl = new URLSearchParams(search).get('symbol')?.trim() ?? '';
+  if (isValidSymbol(fromUrl)) return fromUrl;
+  if (isValidSymbol(stored)) return stored;
+  return DEFAULT_SYMBOL;
+}
 
 const MA_LINES = [
   { period: 5, color: '#e6d7a8' },
@@ -93,6 +139,7 @@ export function startDesk(): void {
   const chartHost = must<HTMLElement>('chart');
   const banner = must<HTMLElement>('banner');
   const studyTitle = must<HTMLElement>('study-title');
+  const stageReading = must<HTMLElement>('stage-reading');
   const studyBlurb = must<HTMLElement>('study-blurb');
   const sourceLine = must<HTMLElement>('source-line');
   const timeframeLine = must<HTMLElement>('timeframe-line');
@@ -237,6 +284,20 @@ export function startDesk(): void {
     tabDock.textContent = ui.tabDock;
     const skip = document.querySelector('.skip');
     if (skip) skip.textContent = ui.skip;
+    layerBi.textContent = ui.layerBi;
+    layerSeg.textContent = ui.layerSeg;
+    layerZs.textContent = ui.layerZs;
+    layerBsp.textContent = ui.layerBsp;
+    layerBi.title = ui.tipBi;
+    layerSeg.title = ui.tipSeg;
+    layerZs.title = ui.tipZs;
+    layerBsp.title = ui.tipBsp;
+    layerBi.setAttribute('aria-label', ui.tipBi);
+    layerSeg.setAttribute('aria-label', ui.tipSeg);
+    layerZs.setAttribute('aria-label', ui.tipZs);
+    layerBsp.setAttribute('aria-label', ui.tipBsp);
+    levelBi.title = ui.tipLevelBi;
+    levelSeg.title = ui.tipLevelSeg;
     footerAdvice.textContent = ui.advice;
     const link = document.createElement('a');
     link.href = 'https://www.tradingview.com/';
@@ -391,7 +452,8 @@ export function startDesk(): void {
       change.className = `watch-change ${toneClass(snapshot?.changePercent)}`;
       change.textContent = snapshot && Number.isFinite(snapshot.changePercent) ? formatPercent(snapshot.changePercent as number) : '';
       button.append(code, change);
-      if (snapshot?.name) button.append(element('span', 'watch-name', snapshot.name));
+      const name = snapshot?.name ?? WATCH_NAMES[mapped.display] ?? WATCH_NAMES[item.symbol];
+      if (name) button.append(element('span', 'watch-name', name));
       button.addEventListener('click', () => {
         customSymbol.value = item.symbol;
         void loadLive(item.symbol);
@@ -450,7 +512,9 @@ export function startDesk(): void {
     const hubs = activeHubs();
     const marks = activeMarks();
     const latest = hubs[hubs.length - 1];
+    const reading = readingInput(latest);
     studyTitle.textContent = live ? [live.symbol, lastQuote?.name ?? live.name].filter(Boolean).join(' · ') : fixture.title[lang];
+    stageReading.textContent = ui.stageReading(reading);
     studyBlurb.textContent = live ? ui.liveBlurb : shownBars.length === 0 ? ui.emptyQuote : fixture.blurb[lang];
     renderProvenance();
     renderLegend();
@@ -464,19 +528,14 @@ export function startDesk(): void {
           : analysis.segmentHubs.length === 0
             ? ui.levelNoteSegEmpty
             : ui.levelNoteSeg;
-    const finished = analysis.segments.filter((segment) => segment.finished).length;
-    const unfinished = analysis.segments.length - finished;
-    const segmentText =
-      lang === 'zh'
-        ? `线段 ${finished} 完成 / ${unfinished} 未完成`
-        : `segments ${finished} finished / ${unfinished} unfinished`;
-    const countLine =
-      lang === 'zh'
-        ? `K ${shownBars.length} · 笔 ${analysis.bi.length} · 段 ${analysis.segments.length} · 中枢 ${hubs.length} · BSP ${marks.length}`
-        : `K ${shownBars.length} · BI ${analysis.bi.length} · Seg ${analysis.segments.length} · ZS ${hubs.length} · BSP ${marks.length}`;
-    structureCount.textContent = shownBars.length === 0 ? '' : `${countLine} · ${segmentText}`;
-    levelBi.textContent = lang === 'zh' ? `笔级 ${analysis.biHubs.length}` : `Stroke ${analysis.biHubs.length}`;
-    levelSeg.textContent = lang === 'zh' ? `段级 ${analysis.segmentHubs.length}` : `Segment ${analysis.segmentHubs.length}`;
+    structureCount.textContent =
+      shownBars.length === 0
+        ? ''
+        : ui.counts(shownBars.length, analysis.bi.length, analysis.segments.length, hubs.length, marks.length);
+    levelBi.textContent = `${ui.levelBi} ${analysis.biHubs.length}`;
+    levelSeg.textContent = `${ui.levelSeg} ${analysis.segmentHubs.length}`;
+    levelBi.setAttribute('aria-label', `${ui.levelBi} ${analysis.biHubs.length}. ${ui.tipLevelBi}`);
+    levelSeg.setAttribute('aria-label', `${ui.levelSeg} ${analysis.segmentHubs.length}. ${ui.tipLevelSeg}`);
     layerAll.textContent = ui.showAll;
     layerNone.textContent = ui.hideAll;
     layerMa.textContent = ui.maLayer;
@@ -537,10 +596,27 @@ export function startDesk(): void {
       fontFamily: getComputedStyle(document.body).fontFamily || 'sans-serif',
       swings: structureSwingLabels(visible.bi, visible.segments, labelSet),
     });
-    renderState(latest);
+    renderState(latest, reading);
     renderList(hubs, marks);
     if (stage) stage.setAttribute('aria-busy', 'false');
     if (announceSelection) announce();
+  }
+
+  function readingInput(latest: Hub | undefined): ReadingInput {
+    const input: ReadingInput = {};
+    const lastBi = analysis.bi[analysis.bi.length - 1];
+    const lastSeg = analysis.segments[analysis.segments.length - 1];
+    const close = shownBars[shownBars.length - 1]?.close;
+    if (lastBi) input.bi = { direction: lastBi.direction };
+    if (lastSeg) input.seg = { direction: lastSeg.direction, finished: lastSeg.finished };
+    if (latest && close !== undefined) {
+      input.hub = {
+        zd: formatPrice(latest.zd),
+        zg: formatPrice(latest.zg),
+        place: priceBand(close, latest.zd, latest.zg),
+      };
+    }
+    return input;
   }
 
   function stateRow(term: string, value: string, sub?: string): HTMLElement {
@@ -553,17 +629,17 @@ export function startDesk(): void {
     return row;
   }
 
-  function renderState(latest: Hub | undefined): void {
+  function renderState(latest: Hub | undefined, reading: ReadingInput): void {
     const ui = text();
+    const paragraph = element('p', 'reading', ui.reading(reading));
     const list = document.createElement('dl');
     list.className = 'state';
     const lastBi = analysis.bi[analysis.bi.length - 1];
     const lastSeg = analysis.segments[analysis.segments.length - 1];
-    const close = shownBars[shownBars.length - 1]?.close;
     list.append(
       stateRow(
         ui.stateBi,
-        lastBi ? `${lastBi.direction === 'up' ? ui.dirUp : ui.dirDown} · ${ui.unconfirmed}` : ui.noneStruct,
+        lastBi ? `${lastBi.direction === 'up' ? ui.dirUp : ui.dirDown}，${ui.unconfirmed}` : ui.noneStruct,
         lastBi && analysis.bi.length > 1 ? ui.priorBi(analysis.bi.length - 1) : undefined,
       ),
     );
@@ -571,33 +647,39 @@ export function startDesk(): void {
       stateRow(
         ui.stateSeg,
         lastSeg
-          ? `${lastSeg.direction === 'up' ? ui.dirUp : ui.dirDown} · ${lastSeg.finished ? ui.confirmed : ui.unconfirmed}`
+          ? `${lastSeg.direction === 'up' ? ui.dirUp : ui.dirDown}，${lastSeg.finished ? ui.confirmed : ui.unconfirmed}`
           : ui.noneStruct,
       ),
     );
-    if (!latest || close === undefined) {
+    if (!latest || !reading.hub) {
       const row = stateRow(ui.stateZs, ui.noneStruct, shownBars.length === 0 ? ui.emptyQuote : ui.noHubBody);
       row.classList.add('is-lead');
       list.append(row);
     } else {
-      const place = priceBand(close, latest.zd, latest.zg);
-      const placeText = place === 'above' ? ui.priceAbove : place === 'below' ? ui.priceBelow : ui.priceInside;
+      const placeText =
+        reading.hub.place === 'above' ? ui.priceAbove : reading.hub.place === 'below' ? ui.priceBelow : ui.priceInside;
       const row = stateRow(
         ui.stateZs,
-        `ZG ${formatPrice(latest.zg)} — ZD ${formatPrice(latest.zd)} · ${placeText}`,
-        `${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
+        `${ui.zg} ${reading.hub.zg}，${ui.zd} ${reading.hub.zd}`,
+        `${placeText} · ${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
       );
       row.classList.add('is-lead');
       list.append(row);
     }
-    const bsp = activeMarks().length;
-    const counts =
-      lang === 'zh'
-        ? `K ${shownBars.length} · 笔 ${analysis.bi.length} · 段 ${analysis.segments.length} · 中枢 ${activeHubs().length} · BSP ${bsp}`
-        : `K ${shownBars.length} · BI ${analysis.bi.length} · Seg ${analysis.segments.length} · ZS ${activeHubs().length} · BSP ${bsp}`;
-    list.append(stateRow(ui.stateCount, counts));
-    callout.replaceChildren(list);
-    callout.className = '';
+    list.append(
+      stateRow(
+        ui.stateCount,
+        ui.counts(
+          shownBars.length,
+          analysis.bi.length,
+          analysis.segments.length,
+          activeHubs().length,
+          activeMarks().length,
+        ),
+      ),
+    );
+    callout.replaceChildren(paragraph, list);
+    callout.className = 'callout';
   }
 
   function renderList(hubs: Hub[], marks: Mark[]): void {
@@ -635,28 +717,24 @@ export function startDesk(): void {
       if (hub.id === selectedId) button.classList.add('is-selected');
       button.setAttribute('aria-pressed', hub.id === selectedId ? 'true' : 'false');
       const title = element('div', 'row');
-      const name = lang === 'zh' ? `${hub.level === 'bi' ? '笔' : '段'}中枢 ${index + 1}` : `${hub.level === 'bi' ? 'Stroke' : 'Segment'} hub ${index + 1}`;
-      title.append(element('strong', undefined, name));
+      title.append(element('strong', undefined, ui.hubTitle(hub.level, index + 1)));
       const tags: string[] = [];
       if (hub.id === hubs[hubs.length - 1]?.id) tags.push(ui.latestTag);
       if (hub.id === selectedId) tags.push(ui.selected);
       if (tags.length) title.append(element('span', undefined, tags.join(' · ')));
       const prices = element('div', 'prices');
-      prices.append(element('span', 'zg', `${ui.zd} ${formatPrice(hub.zd)}`));
-      prices.append(element('span', 'zg', `${ui.zg} ${formatPrice(hub.zg)}`));
-      prices.append(element('span', undefined, `${ui.dd} ${formatPrice(hub.dd)}`));
-      prices.append(element('span', undefined, `${ui.gg} ${formatPrice(hub.gg)}`));
+      prices.append(element('span', 'edge', `${ui.zg} ${formatPrice(hub.zg)}`));
+      prices.append(element('span', 'edge', `${ui.zd} ${formatPrice(hub.zd)}`));
+      prices.append(element('span', 'extreme', `${ui.gg} ${formatPrice(hub.gg)}`));
+      prices.append(element('span', 'extreme', `${ui.dd} ${formatPrice(hub.dd)}`));
       button.append(title, prices);
       button.append(element('div', 'meta', `${formatDay(hub.startTime)} → ${formatDay(hub.endTime)}`));
-      const detail = [
+      const status = [
         ui.status(hub.status, hub.extended, hub.level),
-        hub.extended ? ui.extended : '',
-        ui.members(hub.memberIds.length, hub.level),
         hub.enterDirection === 'up' ? ui.enterUp : ui.enterDown,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      button.append(element('div', 'meta', detail));
+      ].join(lang === 'zh' ? '，' : '. ');
+      button.append(element('div', 'status-line', status));
+      button.append(element('div', 'meta', ui.members(hub.memberIds.length, hub.level)));
       const mark = marks.find((item) => item.hubId === hub.id);
       if (mark) {
         const markName = mark.kind === 'buy3' ? ui.buy : ui.sell;
@@ -703,6 +781,7 @@ export function startDesk(): void {
       notice = { kind: 'none' };
       rememberQuote(quote);
       customSymbol.value = quote.display;
+      persistDisplaySymbol(quote.display);
       useBars(quote.bars, true);
     } catch (error) {
       if (serial !== requestSerial) return;
@@ -813,8 +892,9 @@ export function startDesk(): void {
   tabWatch.addEventListener('click', () => setMobilePanel(mobilePanel === 'watch' ? 'chart' : 'watch'));
   tabDock.addEventListener('click', () => setMobilePanel(mobilePanel === 'dock' ? 'chart' : 'dock'));
 
-  customSymbol.value = '600519';
+  const initialSymbol = bootSymbol();
+  customSymbol.value = initialSymbol;
   applyStaticCopy();
   paint(false);
-  void loadLive('600519');
+  void loadLive(initialSymbol);
 }

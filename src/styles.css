@@ -152,17 +152,21 @@ header.toolbar {
 
 .chip {
   min-height: 28px;
-  padding: 0 7px;
+  padding: 0 8px;
   font-size: 12px;
   letter-spacing: 0.02em;
   background: #0e1115;
 }
+
+.chip:hover:not(:disabled) { background: #161b22; }
 
 .chip[aria-pressed="true"] {
   background: #1c2630;
   border-color: #3a4654;
   color: #f2f4f6;
 }
+
+.chip[aria-pressed="true"]:hover:not(:disabled) { background: #222c38; }
 
 .chip:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -180,7 +184,7 @@ header.toolbar {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr) 300px;
+  grid-template-columns: 168px minmax(0, 1fr) 320px;
 }
 
 .watchlist {
@@ -259,6 +263,16 @@ header.toolbar {
 }
 
 #study-title { margin: 0; font-size: 14px; letter-spacing: 0.04em; }
+
+#stage-reading {
+  flex: 1 0 100%;
+  margin: 0;
+  max-width: 72ch;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #c5cad3;
+}
 
 #study-blurb { margin: 0; font-size: 12px; color: var(--muted); max-width: 72ch; }
 
@@ -365,12 +379,13 @@ header.toolbar {
 .dock {
   min-width: 0;
   overflow: auto;
-  padding: 10px 10px 16px;
+  padding: 8px 10px 28px;
+  scroll-padding-bottom: 20px;
   background: var(--panel);
 }
 
 .dock h2 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -378,7 +393,7 @@ header.toolbar {
 }
 
 .dock h3 {
-  margin: 16px 0 8px;
+  margin: 12px 0 6px;
   font-size: 12px;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -388,8 +403,8 @@ header.toolbar {
 .quote-board {
   border: 1px solid var(--line);
   background: #0e1115;
-  padding: 8px 10px;
-  margin: 0 0 12px;
+  padding: 6px 8px 8px;
+  margin: 0 0 8px;
 }
 
 .quote-head {
@@ -404,7 +419,7 @@ header.toolbar {
 
 .quote-last {
   font-family: var(--mono);
-  font-size: 22px;
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -415,8 +430,8 @@ header.toolbar {
 .quote-grid {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 3px 10px;
-  margin: 8px 0 0;
+  gap: 2px 10px;
+  margin: 6px 0 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -431,20 +446,50 @@ header.toolbar {
 
 .state .is-lead dd { color: var(--gold-text); font-size: 13px; }
 
-.callout, .state {
+.callout {
+  border: 1px solid var(--line);
+  background: #0e1115;
+  padding: 8px 10px 10px;
+  margin: 0 0 8px;
+}
+
+.callout .reading {
+  margin: 0 0 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e4e6ea;
+}
+
+.callout .state {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.state {
+  display: grid;
+  gap: 6px;
+  margin: 0;
   border: 1px solid var(--line);
   background: #0e1115;
   padding: 8px 10px;
-  margin: 0 0 12px;
 }
 
-.state { display: grid; gap: 7px; margin: 0; }
-
-.state div { display: grid; grid-template-columns: 4.6rem minmax(0, 1fr); gap: 6px; align-items: baseline; }
+.state div { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 6px; align-items: baseline; }
 
 .state dt { margin: 0; font-size: 11px; color: var(--muted); }
 
-.state dd { margin: 0; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.state dd {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.state .price { font-variant-numeric: tabular-nums; }
 
 .state .sub { display: block; margin-top: 2px; font-family: var(--sans); font-size: 11px; color: var(--muted); }
 
@@ -452,18 +497,27 @@ header.toolbar {
   display: block;
   width: 100%;
   text-align: left;
-  margin: 0 0 8px;
-  padding: 8px 10px 8px 10px;
+  margin: 0 0 10px;
+  padding: 12px 12px 12px 14px;
   background: var(--card);
   border: 1px solid var(--line);
-  border-left: 2px solid #6d7580;
+  border-left: 3px solid #6d7580;
+  border-radius: 4px;
 }
+
+.hub-card:hover { background: #171c23; }
 
 .hub-card.is-latest { border-left-color: var(--hub); }
 
 .hub-card.is-selected {
-  background: var(--card-selected);
-  border-color: #c5cad3;
+  background: #1c2733;
+  border-color: var(--gold-text);
+  box-shadow: inset 0 0 0 1px var(--gold-text);
+}
+
+.hub-card:focus-visible {
+  outline: 2px solid var(--gold-text);
+  outline-offset: 2px;
 }
 
 .hub-card .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
@@ -471,11 +525,30 @@ header.toolbar {
 .prices {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px 10px;
-  margin: 6px 0;
-  font-family: var(--mono);
-  font-size: 12px;
+  gap: 4px 12px;
+  margin: 8px 0 6px;
+  font-family: var(--sans);
   font-variant-numeric: tabular-nums;
+}
+
+.prices .edge {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.prices .extreme {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-card .status-line {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #d5d8de;
 }
 
 .zg { color: #d5d8de; }
@@ -569,13 +642,26 @@ dialog::backdrop { background: rgba(4, 5, 7, 0.78); }
   .desk.is-drawer-open .dock {
     display: block;
     position: absolute;
-    inset: 0 0 40px 0;
-    height: auto;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 3;
     border-top: 1px solid var(--line);
     border-right: 0;
   }
+  .desk.is-drawer-watch #structure-count,
+  .desk.is-drawer-dock #structure-count,
+  .desk.is-drawer-open #structure-count {
+    visibility: hidden;
+  }
   #study-blurb, .legend, #level-note, #timeframe-line { display: none; }
+  #stage-reading {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
   .chart-meta { padding-bottom: 0; }
   .provenance { padding-top: 0; }
   .desk { position: relative; }
@@ -594,6 +680,8 @@ dialog::backdrop { background: rgba(4, 5, 7, 0.78); }
     background: transparent;
   }
   .mobile-tabs button[aria-pressed="true"] { background: #151b22; }
+  footer #footer-chart { display: none; }
+  footer #footer-advice { margin: 0; }
 }
 
 @media (max-width: 420px) {
@@ -615,7 +703,6 @@ dialog::backdrop { background: rgba(4, 5, 7, 0.78); }
   footer {
     padding: 4px 8px;
   }
-  footer p + p { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
