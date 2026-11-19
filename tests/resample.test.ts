@@ -33,4 +33,19 @@ describe('resample', () => {
     expect(applyTimeframe(daily, 'D')).toEqual(daily);
     expect(applyTimeframe(daily, 'W')).toHaveLength(1);
   });
+
+  it('sums volume only when every daily bar in the week has one', () => {
+    const thu = Date.UTC(2024, 0, 4) / 1000;
+    const fri = Date.UTC(2024, 0, 5) / 1000;
+    const complete = resampleWeekly([
+      { time: thu, open: 10, high: 12, low: 9, close: 11, volume: 5 },
+      { time: fri, open: 11, high: 14, low: 8, close: 13, volume: 7 },
+    ]);
+    expect(complete[0].volume).toBe(12);
+    const incomplete = resampleWeekly([
+      { time: thu, open: 10, high: 12, low: 9, close: 11, volume: 5 },
+      { time: fri, open: 11, high: 14, low: 8, close: 13 },
+    ]);
+    expect(incomplete[0].volume).toBeUndefined();
+  });
 });
