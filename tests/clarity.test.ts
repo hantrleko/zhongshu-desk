@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/engine/analyze.ts';
 import { fixtures } from '../src/data/fixtures.ts';
 import { applyTimeframe } from '../src/data/resample.ts';
-import { formatBarClock, formatDay, formatUtcDateTime } from '../src/format.ts';
+import { formatBarClock, formatDay, formatDayNowrap, formatDayRange, formatUtcDateTime } from '../src/format.ts';
 import {
   applyLayerVisibility,
   canSelectTimeframe,
@@ -11,6 +11,7 @@ import {
   markAnchor,
   markChartLabel,
   partitionLastSwing,
+  recentVisibleLogicalRange,
   resolveShownTimeframe,
 } from '../src/ui/clarity.ts';
 
@@ -95,6 +96,16 @@ describe('bar clock', () => {
     expect(lastBarClock(last, '5m')).toBe(`${formatUtcDateTime(last.time)} UTC`);
     expect(lastBarClock(undefined, 'D')).toBeNull();
   });
+
+  it('keeps a display date from wrapping after the year hyphen', () => {
+    const lateUtc = Date.UTC(2025, 8, 23, 0, 0, 0) / 1000;
+    const later = Date.UTC(2025, 10, 20, 0, 0, 0) / 1000;
+    expect(formatDay(lateUtc)).toBe('2025-09-23');
+    expect(formatDayNowrap(lateUtc)).toBe('2025\u201109\u201123');
+    expect(formatDayNowrap(lateUtc)).not.toContain('-');
+    expect(formatDayRange(lateUtc, later)).toBe('2025\u201109\u201123 → 2025\u201111\u201120');
+    expect(formatDayRange(lateUtc, later)).toContain(' → ');
+  });
 });
 
 describe('empty hub reasons', () => {
@@ -160,5 +171,23 @@ describe('chart marks and the last stroke', () => {
     expect(partitionLastSwing([])).toEqual({ confirmed: [], unconfirmed: [] });
     expect(partitionLastSwing(['a'])).toEqual({ confirmed: [], unconfirmed: ['a'] });
     expect(partitionLastSwing(['a', 'b', 'c'])).toEqual({ confirmed: ['a', 'b'], unconfirmed: ['c'] });
+  });
+});
+
+describe('recent visible logical range', () => {
+  it('returns null when there are no bars', () => {
+    expect(recentVisibleLogicalRange(0)).toBeNull();
+    expect(recentVisibleLogicalRange(-1)).toBeNull();
+  });
+
+  it('fits all bars when the series is shorter than the window, and keeps the right offset', () => {
+    expect(recentVisibleLogicalRange(50, 90, 8)).toEqual({ from: 0, to: 57 });
+    expect(recentVisibleLogicalRange(1, 90, 8)).toEqual({ from: 0, to: 8 });
+  });
+
+  it('shows the last 90 bars of a long daily series so recent prices fill the pane', () => {
+    expect(recentVisibleLogicalRange(321, 90, 8)).toEqual({ from: 231, to: 328 });
+    expect(recentVisibleLogicalRange(90, 90, 8)).toEqual({ from: 0, to: 97 });
+    expect(recentVisibleLogicalRange(91, 90, 8)).toEqual({ from: 1, to: 98 });
   });
 });
