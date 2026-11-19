@@ -22,7 +22,7 @@ import {
 import { analyze } from '../engine/analyze.ts';
 import { priceBand } from '../engine/readout.ts';
 import type { Analysis, Bar, Hub, HubLevel, Mark } from '../engine/types.ts';
-import { formatChange, formatDay, formatPercent, formatPrice, formatVolume } from '../format.ts';
+import { formatChange, formatDayNowrap, formatDayRange, formatPercent, formatPrice, formatVolume } from '../format.ts';
 import { copy, type Lang, type ReadingInput } from '../i18n.ts';
 
 interface LiveSource {
@@ -149,6 +149,7 @@ export function startDesk(): void {
   const structureCount = must<HTMLElement>('structure-count');
   const levelBi = must<HTMLButtonElement>('level-bi');
   const levelSeg = must<HTMLButtonElement>('level-seg');
+  const fitAll = must<HTMLButtonElement>('fit-all');
   const layerAll = must<HTMLButtonElement>('layer-all');
   const layerNone = must<HTMLButtonElement>('layer-none');
   const layerBi = must<HTMLButtonElement>('layer-bi');
@@ -274,6 +275,8 @@ export function startDesk(): void {
     langButton.setAttribute('aria-label', ui.langLabel);
     methodsButton.textContent = ui.methods;
     methodsClose.textContent = ui.close;
+    fitAll.textContent = ui.fitAll;
+    fitAll.title = ui.fitAllTip;
     must<HTMLButtonElement>('quote-submit').textContent = ui.read;
     customSymbol.placeholder = ui.placeholder;
     marketA.textContent = ui.marketA;
@@ -316,6 +319,12 @@ export function startDesk(): void {
       methodsBody.append(element('h3', undefined, section.heading));
       for (const paragraph of section.paragraphs) methodsBody.append(element('p', undefined, paragraph));
     }
+    methodsBody.append(element('h3', undefined, ui.legend));
+    const list = document.createElement('ul');
+    list.className = 'legend methods-legend';
+    list.setAttribute('aria-label', ui.legend);
+    for (const item of legendItems(ui)) list.append(legendItem(item));
+    methodsBody.append(list);
   }
 
   type Notice =
@@ -374,36 +383,30 @@ export function startDesk(): void {
     const ui = text();
     const shown = shownTimeframe();
     const requested = timeframeWords(shown, ui);
-    if (live) {
-      const named = lastQuote?.name ? ` · ${lastQuote.name}` : '';
-      sourceLine.textContent = `${ui.provenanceQuote} · ${sourceName(live.source)} · ${live.symbol}${named}`;
-    } else if (failedSymbol && shownBars.length === 0) {
+    if (failedSymbol && shownBars.length === 0) {
       sourceLine.textContent = ui.fallbackLesson(failedSymbol);
     } else if (shownBars.length === 0) {
       sourceLine.textContent = ui.emptyQuote;
     } else {
-      sourceLine.textContent = `${ui.provenanceLesson} · ${ui.teachingPrices}`;
+      const source = live
+        ? `${ui.provenanceQuote} · ${sourceName(live.source)} · ${live.symbol}${lastQuote?.name ? ` · ${lastQuote.name}` : ''}`
+        : ui.provenanceLesson;
+      const stamp = lastBarClock(shownBars[shownBars.length - 1], shown);
+      const freshnessParts: string[] = [];
+      if (stamp) freshnessParts.push(ui.lastBar(stamp));
+      freshnessParts.push(ui.notRealtime);
+      if (live) freshnessParts.push(lastQuote?.delayed ? ui.delayedYes : ui.maybeDelayed);
+      else freshnessParts.push(ui.teachingPrices);
+      sourceLine.textContent = [source, ui.timeframeLine(requested, requested), freshnessParts.join(' · ')].filter(Boolean).join(' · ');
     }
-    const parts = [ui.timeframeLine(requested, requested)];
-    if (!live && shownBars.length > 0) parts.push(ui.lessonTfHint);
-    if (!live && shown === 'W' && shownBars.length > 0) parts.push(ui.weeklyNote);
-    timeframeLine.textContent = parts.join(' ');
-    const stamp = lastBarClock(shownBars[shownBars.length - 1], shown);
-    if (stamp) {
-      const tags = [ui.lastBar(stamp), ui.notRealtime];
-      if (live) tags.push(lastQuote?.delayed ? ui.delayedYes : ui.maybeDelayed);
-      else tags.push(ui.teachingPrices);
-      freshnessLine.textContent = tags.join(' · ');
-    } else {
-      freshnessLine.textContent = shownBars.length === 0 ? '' : ui.notRealtime;
-    }
+    timeframeLine.textContent = '';
+    freshnessLine.textContent = '';
   }
 
-  function renderLegend(): void {
-    const ui = text();
-    legend.setAttribute('aria-label', ui.legend);
-    legend.replaceChildren();
-    const items: Array<{ swatch: string; color?: string; text: string; mark?: string }> = [
+  type LegendItem = { swatch: string; color?: string; text: string; mark?: string };
+
+  function legendItems(ui: ReturnType<typeof copy>, compact = false): LegendItem[] {
+    const items: LegendItem[] = [
       { swatch: 'swatch', color: '#f3f4f6', text: ui.legendBi },
       { swatch: 'swatch is-dashed', color: '#f3f4f6', text: ui.legendBiOpen },
       { swatch: 'swatch', color: '#5b8def', text: ui.legendSeg },
@@ -414,17 +417,28 @@ export function startDesk(): void {
     ];
     if (showMa) items.push({ swatch: 'swatch', color: '#e6d7a8', text: ui.legendMa });
     if (volumePoints(shownBars).length > 0) items.push({ swatch: 'swatch', color: '#26c6b0', text: ui.legendVol });
-    if (computeMacd(shownBars).length > 0) items.push({ swatch: 'swatch', color: '#d6c07a', text: ui.legendMacd });
-    for (const item of items) {
-      const row = document.createElement('li');
-      const sample = document.createElement('span');
-      sample.className = item.swatch;
-      sample.setAttribute('aria-hidden', 'true');
-      if (item.color) sample.style.color = item.color;
-      if (item.mark) sample.textContent = item.mark;
-      row.append(sample, document.createTextNode(item.text));
-      legend.append(row);
+    if (computeMacd(shownBars).length > 0) {
+      items.push({ swatch: 'swatch', color: '#d6c07a', text: compact ? ui.legendMacdShort : ui.legendMacd });
     }
+    return items;
+  }
+
+  function legendItem(item: LegendItem): HTMLLIElement {
+    const row = document.createElement('li');
+    const sample = document.createElement('span');
+    sample.className = item.swatch;
+    sample.setAttribute('aria-hidden', 'true');
+    if (item.color) sample.style.color = item.color;
+    if (item.mark) sample.textContent = item.mark;
+    row.append(sample, document.createTextNode(item.text));
+    return row;
+  }
+
+  function renderLegend(): void {
+    const ui = text();
+    legend.setAttribute('aria-label', ui.legend);
+    legend.replaceChildren();
+    for (const item of legendItems(ui, true)) legend.append(legendItem(item));
   }
 
   function toneClass(value: number | undefined): string {
@@ -660,8 +674,8 @@ export function startDesk(): void {
         reading.hub.place === 'above' ? ui.priceAbove : reading.hub.place === 'below' ? ui.priceBelow : ui.priceInside;
       const row = stateRow(
         ui.stateZs,
-        `${ui.zg} ${reading.hub.zg}，${ui.zd} ${reading.hub.zd}`,
-        `${placeText} · ${ui.status(latest.status, latest.extended, latest.level)} · ${formatDay(latest.startTime)} → ${formatDay(latest.endTime)}`,
+        `${ui.zg}\u00a0${reading.hub.zg}，${ui.zd}\u00a0${reading.hub.zd}`,
+        `${placeText} · ${ui.status(latest.status, latest.extended, latest.level)} · ${formatDayRange(latest.startTime, latest.endTime)}`,
       );
       row.classList.add('is-lead');
       list.append(row);
@@ -728,7 +742,7 @@ export function startDesk(): void {
       prices.append(element('span', 'extreme', `${ui.gg} ${formatPrice(hub.gg)}`));
       prices.append(element('span', 'extreme', `${ui.dd} ${formatPrice(hub.dd)}`));
       button.append(title, prices);
-      button.append(element('div', 'meta', `${formatDay(hub.startTime)} → ${formatDay(hub.endTime)}`));
+      button.append(element('div', 'meta', formatDayRange(hub.startTime, hub.endTime)));
       const status = [
         ui.status(hub.status, hub.extended, hub.level),
         hub.enterDirection === 'up' ? ui.enterUp : ui.enterDown,
@@ -738,7 +752,7 @@ export function startDesk(): void {
       const mark = marks.find((item) => item.hubId === hub.id);
       if (mark) {
         const markName = mark.kind === 'buy3' ? ui.buy : ui.sell;
-        button.append(element('div', 'mark-line', `${markName} ${formatPrice(mark.price)} · ${formatDay(mark.time)}`));
+        button.append(element('div', 'mark-line', `${markName}\u00a0${formatPrice(mark.price)} · ${formatDayNowrap(mark.time)}`));
       }
       button.addEventListener('click', () => {
         selectedId = selectedId === hub.id ? null : hub.id;
@@ -828,6 +842,7 @@ export function startDesk(): void {
     layers = next;
     paint(false);
   }
+  fitAll.addEventListener('click', () => chart.fitAll());
   layerAll.addEventListener('click', () => setLayers({ bi: true, seg: true, zs: true, bsp: true }));
   layerNone.addEventListener('click', () => setLayers({ bi: false, seg: false, zs: false, bsp: false }));
   layerBi.addEventListener('click', () => setLayers({ ...layers, bi: !layers.bi }));
