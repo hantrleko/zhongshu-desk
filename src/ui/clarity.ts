@@ -83,3 +83,24 @@ export function emptyHubReason(input: {
   }
   return { kind: 'need-strokes', bars: input.barCount, strokes: input.strokeCount };
 }
+
+/** Default first-load window: recent bars, not the full history. */
+export const DEFAULT_RECENT_BARS = 90;
+export const DEFAULT_RIGHT_OFFSET = 8;
+
+/**
+ * Logical range for a first fit: the last `window` bars (or all bars if fewer),
+ * plus the same right-side padding the time scale already uses.
+ */
+export function recentVisibleLogicalRange(
+  barCount: number,
+  window = DEFAULT_RECENT_BARS,
+  rightOffset = DEFAULT_RIGHT_OFFSET,
+): { from: number; to: number } | null {
+  if (barCount <= 0) return null;
+  const visible = Math.min(barCount, Math.max(1, window));
+  return {
+    from: barCount - visible,
+    to: barCount - 1 + rightOffset,
+  };
+}

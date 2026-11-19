@@ -31,6 +31,8 @@ interface Copy {
   layerGroup: string;
   showAll: string;
   hideAll: string;
+  fitAll: string;
+  fitAllTip: string;
   stateBi: string;
   stateSeg: string;
   stateZs: string;
@@ -131,6 +133,7 @@ interface Copy {
   legendMa: string;
   legendVol: string;
   legendMacd: string;
+  legendMacdShort: string;
   strokeLabel: string;
   segmentLabel: string;
   hubLabel: string;
@@ -178,10 +181,10 @@ function readingZh(input: ReadingInput): string {
   if (!input.hub) {
     parts.push('还没有走出一段价格来回重叠的震荡区间（也叫中枢）。');
   } else if (input.hub.place === 'inside') {
-    parts.push(`现价在最近一段震荡区间里（下沿 ${input.hub.zd}，上沿 ${input.hub.zg}）。`);
+    parts.push(`现价在最近一段震荡区间里（下沿\u00a0${input.hub.zd}，上沿\u00a0${input.hub.zg}）。`);
   } else {
     const place = input.hub.place === 'above' ? '上方' : '下方';
-    parts.push(`现价在最近一段震荡区间的${place}（下沿 ${input.hub.zd}，上沿 ${input.hub.zg}）。`);
+    parts.push(`现价在最近一段震荡区间的${place}（下沿\u00a0${input.hub.zd}，上沿\u00a0${input.hub.zg}）。`);
   }
   return parts.join('');
 }
@@ -214,7 +217,7 @@ function readingEn(input: ReadingInput): string {
     const place =
       input.hub.place === 'above' ? 'above' : input.hub.place === 'below' ? 'below' : 'inside';
     parts.push(
-      `The last price is ${place} the latest oscillation range (lower edge ${input.hub.zd}, upper edge ${input.hub.zg}).`,
+      `The last price is ${place} the latest oscillation range (lower edge\u00a0${input.hub.zd}, upper edge\u00a0${input.hub.zg}).`,
     );
   }
   return parts.join(' ');
@@ -255,11 +258,11 @@ function hubTitleEn(level: HubLevel, index: number): string {
 }
 
 function countsZh(bars: number, strokes: number, segments: number, hubs: number, marks: number): string {
-  return `${bars} 根 K 线，${strokes} 笔，${segments} 条线段，${hubs} 个震荡区间，${marks} 个买卖点`;
+  return `${bars}\u00a0根\u00a0K\u00a0线，${strokes}\u00a0笔，${segments}\u00a0条线段，${hubs}\u00a0个震荡区间，${marks}\u00a0个买卖点`;
 }
 
 function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
+  return `${count}\u00a0${count === 1 ? one : many}`;
 }
 
 function countsEn(bars: number, strokes: number, segments: number, hubs: number, marks: number): string {
@@ -284,6 +287,8 @@ const zh: Copy = {
   layerGroup: '图层',
   showAll: '全显',
   hideAll: '全隐',
+  fitAll: '看全部',
+  fitAllTip: '显示全部历史 K 线。',
   stateBi: '最近一笔',
   stateSeg: '当前线段',
   stateZs: '震荡区间',
@@ -393,6 +398,7 @@ const zh: Copy = {
   legendMa: 'MA(5/10/20)',
   legendVol: '成交量',
   legendMacd: 'MACD(12,26,9)，指标，不是缠论',
+  legendMacdShort: 'MACD(12,26,9)',
   strokeLabel: '笔',
   segmentLabel: '线段',
   hubLabel: '震荡区间',
@@ -495,6 +501,8 @@ const en: Copy = {
   layerGroup: 'Layers',
   showAll: 'All',
   hideAll: 'None',
+  fitAll: 'Fit all',
+  fitAllTip: 'Show the full price history.',
   stateBi: 'Latest stroke',
   stateSeg: 'Current segment',
   stateZs: 'Oscillation range',
@@ -604,6 +612,7 @@ const en: Copy = {
   legendMa: 'MA(5/10/20)',
   legendVol: 'Volume',
   legendMacd: 'MACD(12,26,9), an indicator, not Chanlun',
+  legendMacdShort: 'MACD(12,26,9)',
   strokeLabel: 'Stroke',
   segmentLabel: 'Segment',
   hubLabel: 'Oscillation range',

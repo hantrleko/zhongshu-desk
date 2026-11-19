@@ -15,7 +15,7 @@ import {
 } from 'lightweight-charts';
 import type { MacdPoint } from '../data/indicators.ts';
 import type { Bar, Bi, Hub, Mark, Segment } from '../engine/types.ts';
-import { markAnchor, markChartLabel, partitionLastSwing } from '../ui/clarity.ts';
+import { markAnchor, markChartLabel, partitionLastSwing, recentVisibleLogicalRange } from '../ui/clarity.ts';
 import { HubPrimitive, type ChartLabels, type DrawnMark } from './hub-primitive.ts';
 
 export interface MaLineInput {
@@ -217,7 +217,16 @@ export class DeskChart {
     }
     this.syncMa(input.ma ?? []);
     this.syncPanes(input.volume ?? [], input.macd ?? []);
-    if (input.fit && input.bars.length > 0) this.chart.timeScale().fitContent();
+    if (input.fit && input.bars.length > 0) {
+      const range = recentVisibleLogicalRange(input.bars.length);
+      if (range) {
+        try {
+          this.chart.timeScale().setVisibleLogicalRange(range);
+        } catch {
+          // A rejected range is left as the chart drew it.
+        }
+      }
+    }
   }
 
   setOverlay(input: ChartOverlayInput): void {
@@ -253,6 +262,11 @@ export class DeskChart {
     } catch {
       // A range outside the series is left as the chart drew it.
     }
+  }
+
+  /** Show the full history. Distinct from the layer “show all” chip. */
+  fitAll(): void {
+    this.chart.timeScale().fitContent();
   }
 
   private syncMa(lines: MaLineInput[]): void {
@@ -362,13 +376,13 @@ export class DeskChart {
       main.setStretchFactor(1);
       return;
     }
-    main.setStretchFactor(3.2);
+    main.setStretchFactor(4.8);
     let index = 1;
     if (hasVolume && panes[index]) {
-      panes[index].setStretchFactor(0.7);
+      panes[index].setStretchFactor(0.55);
       index += 1;
     }
-    if (hasMacd && panes[index]) panes[index].setStretchFactor(0.8);
+    if (hasMacd && panes[index]) panes[index].setStretchFactor(0.65);
   }
 }
 

@@ -89,7 +89,7 @@ class HubRenderer implements IPrimitivePaneRenderer {
       const ctx = scope.context;
       const hx = scope.horizontalPixelRatio;
       const vx = scope.verticalPixelRatio;
-      ctx.font = `${Math.round(12 * vx)}px ${this.host.fontFamily}`;
+      ctx.font = `${Math.round(13 * vx)}px ${this.host.fontFamily}`;
       ctx.textBaseline = 'top';
       for (const box of this.host.boxes) {
         const left = Math.round(box.left * hx);
@@ -109,18 +109,18 @@ class HubRenderer implements IPrimitivePaneRenderer {
           const textWidth = ctx.measureText(tag).width;
           ctx.fillStyle = 'rgba(7, 8, 10, 0.88)';
           ctx.fillRect(left + padX, top + padY, textWidth + padX * 2, 15 * vx);
-          ctx.fillStyle = '#d7dbe3';
+          ctx.fillStyle = '#e8eaed';
           ctx.fillText(tag, left + padX * 1.4, top + padY + vx);
         }
         if (width > 88 * hx && height > 40 * vx && (box.latest || box.selected)) {
           const zg = `${this.host.labels.zg} ${box.zg.toFixed(2)}`;
           const zd = `${this.host.labels.zd} ${box.zd.toFixed(2)}`;
-          ctx.fillStyle = '#c8ccd4';
+          ctx.fillStyle = '#d7dbe3';
           ctx.fillText(zg, left + width - ctx.measureText(zg).width - 6 * hx, top + 4 * vx);
           ctx.fillText(zd, left + width - ctx.measureText(zd).width - 6 * hx, top + height - 16 * vx);
         }
       }
-      ctx.font = `${Math.round(11 * vx)}px ${this.host.fontFamily}`;
+      ctx.font = `${Math.round(12 * vx)}px ${this.host.fontFamily}`;
       ctx.textBaseline = 'top';
       for (const mark of this.host.markDots) {
         const x = Math.round(mark.x * hx);
@@ -129,7 +129,7 @@ class HubRenderer implements IPrimitivePaneRenderer {
         const padY = 2 * vx;
         const textWidth = ctx.measureText(mark.text).width;
         const boxW = textWidth + padX * 2;
-        const boxH = 14 * vx;
+        const boxH = 16 * vx;
         const boxX = x + 6 * hx;
         const boxY = mark.anchor === 'below' ? y + 6 * vx : y - boxH - 6 * vx;
         ctx.strokeStyle = mark.tone === 'swing' ? 'rgba(180, 188, 200, 0.7)' : '#c5cad3';
@@ -139,7 +139,7 @@ class HubRenderer implements IPrimitivePaneRenderer {
         ctx.lineTo(x, y + 3 * vx);
         ctx.stroke();
         ctx.fillStyle = 'rgba(7, 8, 10, 0.9)';
-        ctx.strokeStyle = mark.tone === 'swing' ? 'rgba(120, 150, 210, 0.8)' : 'rgba(200, 204, 212, 0.7)';
+        ctx.strokeStyle = mark.tone === 'swing' ? 'rgba(140, 170, 230, 0.95)' : 'rgba(220, 224, 232, 0.85)';
         ctx.beginPath();
         const r = 3 * Math.max(hx, vx);
         const right = boxX + boxW;
@@ -155,7 +155,7 @@ class HubRenderer implements IPrimitivePaneRenderer {
         ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = mark.tone === 'swing' ? '#c8d4f0' : '#e8eaed';
+        ctx.fillStyle = mark.tone === 'swing' ? '#dce6fb' : '#f3f4f6';
         ctx.fillText(mark.text, boxX + padX, boxY + padY);
       }
     });

@@ -11,7 +11,7 @@ const aboveHub = {
 describe('reading()', () => {
   it('writes a fluent Chinese paragraph when the last stroke is up and price is above the range', () => {
     expect(copy('zh').reading(aboveHub)).toBe(
-      '最近一笔还在向上走，但还没确认，后面的 K 线可能会改写它。更大一级的线段目前向下，同样还没走完。现价在最近一段震荡区间的上方（下沿 1270.33，上沿 1338.86）。',
+      '最近一笔还在向上走，但还没确认，后面的 K 线可能会改写它。更大一级的线段目前向下，同样还没走完。现价在最近一段震荡区间的上方（下沿\u00a01270.33，上沿\u00a01338.86）。',
     );
   });
 
@@ -27,7 +27,7 @@ describe('reading()', () => {
 
   it('writes the same meaning in English', () => {
     expect(copy('en').reading(aboveHub)).toBe(
-      'The latest stroke is still moving up, but it is not confirmed yet, and later bars may rewrite it. The larger segment is currently down, and it has not finished either. The last price is above the latest oscillation range (lower edge 1270.33, upper edge 1338.86).',
+      'The latest stroke is still moving up, but it is not confirmed yet, and later bars may rewrite it. The larger segment is currently down, and it has not finished either. The last price is above the latest oscillation range (lower edge\u00a01270.33, upper edge\u00a01338.86).',
     );
   });
 
@@ -72,14 +72,27 @@ describe('hubTitle() and counts()', () => {
 
   it('lists structure counts without BI/ZS/BSP alphabet soup', () => {
     expect(copy('zh').counts(321, 21, 2, 3, 2)).toBe(
-      '321 根 K 线，21 笔，2 条线段，3 个震荡区间，2 个买卖点',
+      '321\u00a0根\u00a0K\u00a0线，21\u00a0笔，2\u00a0条线段，3\u00a0个震荡区间，2\u00a0个买卖点',
     );
     expect(copy('en').counts(321, 21, 2, 3, 2)).toBe(
-      '321 bars, 21 strokes, 2 segments, 3 oscillation ranges, 2 buy/sell marks',
+      '321\u00a0bars, 21\u00a0strokes, 2\u00a0segments, 3\u00a0oscillation ranges, 2\u00a0buy/sell marks',
     );
     expect(copy('en').counts(1, 1, 1, 1, 1)).toBe(
-      '1 bar, 1 stroke, 1 segment, 1 oscillation range, 1 buy/sell mark',
+      '1\u00a0bar, 1\u00a0stroke, 1\u00a0segment, 1\u00a0oscillation range, 1\u00a0buy/sell mark',
     );
+    const zhCounts = copy('zh').counts(321, 4, 1, 1, 0);
+    expect(zhCounts).toContain('1\u00a0个震荡区间');
+    expect(zhCounts).toContain('0\u00a0个买卖点');
+    expect(zhCounts).not.toMatch(/\d [根笔条个]/);
+  });
+});
+
+describe('legend MACD copy', () => {
+  it('keeps the short label for the chart strip and the full wording for How to read', () => {
+    expect(copy('zh').legendMacdShort).toBe('MACD(12,26,9)');
+    expect(copy('en').legendMacdShort).toBe('MACD(12,26,9)');
+    expect(copy('zh').legendMacd).toBe('MACD(12,26,9)，指标，不是缠论');
+    expect(copy('en').legendMacd).toBe('MACD(12,26,9), an indicator, not Chanlun');
   });
 });
 
