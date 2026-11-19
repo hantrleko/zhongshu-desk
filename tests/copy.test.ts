@@ -11,7 +11,7 @@ const aboveHub = {
 describe('reading()', () => {
   it('writes a fluent Chinese paragraph when the last stroke is up and price is above the range', () => {
     expect(copy('zh').reading(aboveHub)).toBe(
-      '最近一笔还在向上走，但还没确认，后面的 K 线可能会改写它。更大一级的线段目前向下，同样还没走完。现价在最近一段震荡区间的上方（下沿\u00a01270.33，上沿\u00a01338.86）。',
+      '末笔向上，尚未确认，端点仍可能延伸。线段方向向下，待确认。末根收盘位于最近中枢上方，区间为 1270.33–1338.86。',
     );
   });
 
@@ -21,19 +21,19 @@ describe('reading()', () => {
       seg: { direction: 'down', finished: false },
     });
     expect(text).toBe(
-      '最近一笔还在向上走，但还没确认，后面的 K 线可能会改写它。更大一级的线段目前向下，同样还没走完。还没有走出一段价格来回重叠的震荡区间（也叫中枢）。',
+      '末笔向上，尚未确认，端点仍可能延伸。线段方向向下，待确认。当前层级暂无有效中枢。',
     );
   });
 
   it('writes the same meaning in English', () => {
     expect(copy('en').reading(aboveHub)).toBe(
-      'The latest stroke is still moving up, but it is not confirmed yet, and later bars may rewrite it. The larger segment is currently down, and it has not finished either. The last price is above the latest oscillation range (lower edge\u00a01270.33, upper edge\u00a01338.86).',
+      'The latest stroke points up; it is provisional and its endpoint may extend. The segment points down and is provisional. Last bar close is above the latest hub, 1270.33–1338.86.',
     );
   });
 
   it('says plainly in Chinese when there is no stroke or segment yet', () => {
     expect(copy('zh').reading({})).toBe(
-      '图上还没有形成笔。更大一级的线段也还没有走出来。还没有走出一段价格来回重叠的震荡区间（也叫中枢）。',
+      '当前样本尚未形成有效笔。线段结构尚未形成。当前层级暂无有效中枢。',
     );
   });
 });
@@ -41,19 +41,19 @@ describe('reading()', () => {
 describe('stageReading()', () => {
   it('keeps the Chinese stage line compact when price is above an unconfirmed up stroke', () => {
     const text = copy('zh').stageReading(aboveHub);
-    expect(text).toBe('现价在震荡区间上方，最近一笔向上但尚未确认。');
+    expect(text).toBe('末根收盘位于中枢上方；末笔向上，待确认。');
     expect(text.length).toBeLessThanOrEqual(40);
   });
 
   it('says the range has not formed yet when there is no hub', () => {
-    expect(copy('zh').stageReading({ bi: { direction: 'up' } })).toBe('还没有形成震荡区间。');
+    expect(copy('zh').stageReading({ bi: { direction: 'up' } })).toBe('当前层级暂无有效中枢。');
   });
 
   it('writes a compact English stage line', () => {
     expect(copy('en').stageReading(aboveHub)).toBe(
-      'Price is above the oscillation range; the latest stroke is up but not yet confirmed.',
+      'Last bar close is above the hub; the latest up stroke is provisional.',
     );
-    expect(copy('en').stageReading({})).toBe('No oscillation range has formed yet.');
+    expect(copy('en').stageReading({})).toBe('No valid hub at this level.');
   });
 });
 
@@ -111,11 +111,19 @@ describe('status()', () => {
   it('does not say price is still inside the range when the structure has only not left yet', () => {
     const zh = copy('zh');
     const en = copy('en');
-    expect(zh.status('active', true, 'bi')).toBe('延伸中，还没有被离开');
-    expect(zh.status('active', false, 'bi')).toBe('核心三笔，还没有被离开');
+    expect(zh.status('active', true, 'bi')).toBe('中枢延伸，尚无结构性离开');
+    expect(zh.status('active', false, 'bi')).toBe('三笔重叠，尚无结构性离开');
     expect(zh.status('left-down', false, 'bi')).toBe('已向下离开');
     expect(en.status('active', true, 'bi')).toBe('Extending, has not left yet');
     expect(zh.status('active', true, 'bi')).not.toMatch(/仍在区间内/);
   });
 });
 
+
+
+describe('workspace label', () => {
+  it('localizes the research header without changing the English label', () => {
+    expect(copy('zh').workspaceLabel).toBe('技术研判');
+    expect(copy('en').workspaceLabel).toBe('TECHNICAL RESEARCH');
+  });
+});

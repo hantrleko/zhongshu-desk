@@ -104,3 +104,16 @@ export function recentVisibleLogicalRange(
     to: barCount - 1 + rightOffset,
   };
 }
+
+/** Focus real bar indices; calendar padding would swamp a short intraday window. */
+export function evidenceVisibleLogicalRange(
+  times: readonly number[], startTime: number, endTime: number,
+): { from: number; to: number } | null {
+  if (!times.length || !Number.isFinite(startTime) || !Number.isFinite(endTime) || startTime > endTime) return null;
+  const first = times.findIndex(time => time >= startTime);
+  let last = times.length - 1;
+  while (last >= 0 && times[last] > endTime) last -= 1;
+  if (first < 0 || last < first) return null;
+  const padding = Math.max(2, Math.ceil((last - first + 1) * 0.2));
+  return { from: first - padding, to: last + padding };
+}
