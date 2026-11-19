@@ -101,6 +101,37 @@ interface Copy {
   status: (status: HubStatus, extended: boolean, level: HubLevel) => string;
   methodsTitle: string;
   methodSections: MethodSection[];
+  marketA: string;
+  marketUs: string;
+  marketGroup: string;
+  watchlist: string;
+  quoteBoard: string;
+  fieldLast: string;
+  fieldChange: string;
+  fieldOpen: string;
+  fieldHigh: string;
+  fieldLow: string;
+  fieldClose: string;
+  fieldVolume: string;
+  fieldCurrency: string;
+  fieldSource: string;
+  fieldDelay: string;
+  fieldTime: string;
+  delayedYes: string;
+  delayedUnknown: string;
+  loadLesson: string;
+  emptyQuote: string;
+  maLayer: string;
+  legendMa: string;
+  legendVol: string;
+  legendMacd: string;
+  strokeLabel: string;
+  segmentLabel: string;
+  hubLabel: string;
+  tabChart: string;
+  tabWatch: string;
+  tabDock: string;
+  liveBlurb: string;
 }
 
 const zh: Copy = {
@@ -108,9 +139,9 @@ const zh: Copy = {
   timeframe: '周期',
   tfD: '日线',
   tfW: '周线',
-  otherSymbol: '其他代码',
+  otherSymbol: '代码',
   read: '读取',
-  methods: '方法说明',
+  methods: '方法',
   close: '关闭',
   level: '层级',
   levelBi: '笔中枢',
@@ -135,8 +166,8 @@ const zh: Copy = {
   priceBelow: '价格在中枢之下',
   priorBi: (count) => `此前 ${count} 笔已确认`,
   intradayNote: (label) => `样例没有 ${label} K 线，不能拆得更细。图上仍是日线，没有编造价格。`,
-  quoteHint: '公开行情只试 Yahoo 和 Stooq，不保证沪深 A 股。失败就回到样例，不会编造价格。',
-  placeholder: 'AAPL 或 0700.HK',
+  quoteHint: '公开行情按来源依次请求，失败不会编造价格，也不会自动改用教学样例。',
+  placeholder: '600519 或 AAPL',
   langButton: 'EN',
   langLabel: '切换到英文',
   advice: '只供学习，不是投资建议，没有实盘下单。这是一套写明的缠论实现，门派并不相同。',
@@ -144,8 +175,8 @@ const zh: Copy = {
   footerName: 'TradingView Lightweight Charts™',
   footerAfter: '（Apache-2.0），由 TradingView, Inc. 开发。本站与 TradingView 没有隶属关系，没有使用 Charting Library，也没有商业授权。',
   loading: (symbol, timeframe) => `正在请求 ${symbol} 的公开${timeframe}…`,
-  quoteFail: '公开行情没有可用的 K 线，已回到本地样例。下面的价格不是实时行情。',
-  emptySymbol: '先写一个代码，例如 AAPL 或 0700.HK。',
+  quoteFail: '公开行情没有可用的 K 线。下面列出了各来源的原因。没有编造价格，也没有自动改用教学样例。',
+  emptySymbol: '先写一个代码，例如 600519 或 AAPL。',
   badSymbol: '代码只能包含字母、数字和点。',
   noHubTitle: '当前没有中枢',
   noHubBody: '分型和笔可以先画出来。中枢要等至少三笔或三段的价格区间重叠，而且 ZG 必须高于 ZD。',
@@ -153,7 +184,7 @@ const zh: Copy = {
   notRealtime: '非实时',
   teachingPrices: '教学价格，不是成交',
   maybeDelayed: '可能延迟',
-  fallbackLesson: (symbol) => `读不到 ${symbol}，已回到本地样例。图上是教学价格，不是实时行情。`,
+  fallbackLesson: (symbol) => `读不到 ${symbol}。图上若已载入教学样例，价格不是成交。`,
   timeframeLine: (requested, actual) =>
     requested === actual
       ? `周期 ${actual}`
@@ -206,8 +237,45 @@ const zh: Copy = {
     if (extended) return '延伸中，仍在区间内';
     return level === 'bi' ? '核心三笔，仍在区间内' : '核心三段，仍在区间内';
   },
+  marketA: 'A股',
+  marketUs: '美股',
+  marketGroup: '市场',
+  watchlist: '自选',
+  quoteBoard: '行情',
+  fieldLast: '最新',
+  fieldChange: '涨跌',
+  fieldOpen: '开',
+  fieldHigh: '高',
+  fieldLow: '低',
+  fieldClose: '收',
+  fieldVolume: '量',
+  fieldCurrency: '货币',
+  fieldSource: '来源',
+  fieldDelay: '延迟',
+  fieldTime: '时间',
+  delayedYes: '延迟',
+  delayedUnknown: '可能延迟',
+  loadLesson: '载入教学样例',
+  emptyQuote: '还没有可用的行情。公开来源失败时，不会自动改用教学价格。',
+  maLayer: 'MA',
+  legendMa: 'MA(5/10/20)',
+  legendVol: '成交量',
+  legendMacd: 'MACD(12,26,9)，指标，不是缠论',
+  strokeLabel: '笔',
+  segmentLabel: '线段',
+  hubLabel: '中枢',
+  tabChart: '图',
+  tabWatch: '自选',
+  tabDock: '行情',
+  liveBlurb: '这是公开行情，不是样例。中枢按同一套规则现算。',
   methodsTitle: '方法与界限',
   methodSections: [
+    {
+      heading: '这是用来研究和把玩的',
+      paragraphs: [
+        '股票是一场谁有钱、谁有货的游戏。中枢是目的，分型、笔、线段和买卖点都只是看见中枢的手段。',
+      ],
+    },
     {
       heading: '界限',
       paragraphs: [
@@ -219,9 +287,9 @@ const zh: Copy = {
       heading: '数据',
       paragraphs: [
         '三套样例是仓库里的日线 OHLC，转折是排出来的，好让中枢看得清。它们不是某只股票的成交。样例没有 5 分钟、15 分钟、30 分钟和 1 小时 K 线。点这些周期不会拆出新价格，图上仍是日线。',
-        '选择公开行情时，页面直接请求 Yahoo Finance 的图表接口；失败再试 Stooq 的日线 CSV。没有密钥，也没有付费终端。静态页面经常被浏览器跨域拦住。拦住、超时或返回空表时，页面写明原因，并回到样例。',
-        '不完整的 K 线会被丢掉，不会被改写。没有任何一条价格是补出来的。',
-        '不承诺沪深 A 股行情。代码可以试，试不到就是试不到。Stooq 只映射普通美股代码和 .HK。',
+        'A 股优先请求腾讯 / ifzq，失败再试东方财富。美股先试东方财富，再试 Yahoo，浏览器跨域拦住时最后再试 allorigins 代理的 Yahoo；日线还可再试 Stooq。没有密钥，也没有付费终端。不会使用已经损坏的腾讯美股历史（例如只有 2011 与 2026 两根的返回）。',
+        '拦住、超时或返回不可用的 K 线时，页面写明每个来源的原因。不会编造价格，也不会自动改用教学样例。需要时可以按按钮载入教学样例。',
+        '不完整的 K 线会被丢掉，不会被改写。没有任何一条价格是补出来的。成交量只在来源提供时显示。MACD 和均线是由收盘价计算的指标，不是缠论。',
         '样例的周线是把日线按 UTC 自然周收成一根，不是交易所日历，也不是另一份行情。公开行情的时间戳保持来源原样，不换算成交易所时区。',
       ],
     },
@@ -258,7 +326,7 @@ const en: Copy = {
   timeframe: 'Timeframe',
   tfD: 'Daily',
   tfW: 'Weekly',
-  otherSymbol: 'Other symbol',
+  otherSymbol: 'Symbol',
   read: 'Load',
   methods: 'Methods',
   close: 'Close',
@@ -285,8 +353,8 @@ const en: Copy = {
   priceBelow: 'Price is below the hub',
   priorBi: (count) => `${count} earlier strokes are confirmed`,
   intradayNote: (label) => `This lesson has no ${label} bars, so it is not split finer. The chart stays on the daily series. No prices are invented.`,
-  quoteHint: 'Public quotes try Yahoo and Stooq only. China A-shares are not promised. A failure returns to the lesson and never invents a price.',
-  placeholder: 'AAPL or 0700.HK',
+  quoteHint: 'Public quotes are requested in source order. A failure never invents a price and never switches to a lesson by itself.',
+  placeholder: '600519 or AAPL',
   langButton: '中文',
   langLabel: 'Switch to Chinese',
   advice: 'Educational only. Not investment advice. No live orders. This is one documented Chan implementation; schools differ.',
@@ -294,8 +362,8 @@ const en: Copy = {
   footerName: 'TradingView Lightweight Charts™',
   footerAfter: ' (Apache-2.0), created by TradingView, Inc. This desk is not affiliated with TradingView, does not use the Charting Library, and holds no commercial license.',
   loading: (symbol, timeframe) => `Requesting the public ${timeframe} series for ${symbol}…`,
-  quoteFail: 'The public quote returned no usable bars. The chart is back on the local lesson. These prices are not live.',
-  emptySymbol: 'Enter a symbol first, such as AAPL or 0700.HK.',
+  quoteFail: 'The public quote returned no usable bars. Each source is listed below. No price was invented, and the chart did not fall back to a lesson by itself.',
+  emptySymbol: 'Enter a symbol first, such as 600519 or AAPL.',
   badSymbol: 'Use letters, digits, and dots only.',
   noHubTitle: 'No hub in this stretch',
   noHubBody: 'Fractals and strokes can appear first. A hub waits until at least three strokes or three segments overlap, with ZG above ZD.',
@@ -303,7 +371,7 @@ const en: Copy = {
   notRealtime: 'Not live',
   teachingPrices: 'Teaching prices, not prints',
   maybeDelayed: 'May be delayed',
-  fallbackLesson: (symbol) => `Could not read ${symbol}. The chart is back on the local lesson. These are teaching prices, not a live quote.`,
+  fallbackLesson: (symbol) => `Could not read ${symbol}. If a lesson is on the chart, those are teaching prices, not prints.`,
   timeframeLine: (requested, actual) =>
     requested === actual
       ? `Timeframe ${actual}`
@@ -356,8 +424,45 @@ const en: Copy = {
     if (extended) return 'Extending, still inside the band';
     return level === 'bi' ? 'Core of three strokes, still inside the band' : 'Core of three segments, still inside the band';
   },
+  marketA: 'A-shares',
+  marketUs: 'US',
+  marketGroup: 'Market',
+  watchlist: 'Watchlist',
+  quoteBoard: 'Quote',
+  fieldLast: 'Last',
+  fieldChange: 'Change',
+  fieldOpen: 'Open',
+  fieldHigh: 'High',
+  fieldLow: 'Low',
+  fieldClose: 'Close',
+  fieldVolume: 'Volume',
+  fieldCurrency: 'Currency',
+  fieldSource: 'Source',
+  fieldDelay: 'Delay',
+  fieldTime: 'Time',
+  delayedYes: 'Delayed',
+  delayedUnknown: 'May be delayed',
+  loadLesson: 'Load a teaching lesson',
+  emptyQuote: 'No usable quote yet. A failed public source does not automatically switch to teaching prices.',
+  maLayer: 'MA',
+  legendMa: 'MA(5/10/20)',
+  legendVol: 'Volume',
+  legendMacd: 'MACD(12,26,9), an indicator, not Chanlun',
+  strokeLabel: 'Stroke',
+  segmentLabel: 'Segment',
+  hubLabel: 'Hub',
+  tabChart: 'Chart',
+  tabWatch: 'Watch',
+  tabDock: 'Quote',
+  liveBlurb: 'This is a public quote, not a lesson. Hubs are computed with the same rules.',
   methodsTitle: 'Methods and limits',
   methodSections: [
+    {
+      heading: 'This is for study and play',
+      paragraphs: [
+        'A stock is a game of who has the money and who has the shares. The hub is the aim; fractals, strokes, segments, and buy or sell labels are only ways to see it.',
+      ],
+    },
     {
       heading: 'Limits',
       paragraphs: [
@@ -369,9 +474,9 @@ const en: Copy = {
       heading: 'Data',
       paragraphs: [
         'The three lessons are daily OHLC shipped in this repo. The turns are arranged so a hub can be seen. They are not prints from a listed stock. The lessons have no 5-minute, 15-minute, 30-minute, or 1-hour bars. Those chips do not invent a finer series. The chart stays daily.',
-        'A public quote asks the Yahoo Finance chart endpoint from the browser, then Stooq daily CSV if Yahoo fails. There is no API key and no paid terminal. A static page is often blocked by CORS. On a block, a timeout, or an empty table, the page says so and returns to the lesson.',
-        'Incomplete bars are dropped. They are not repaired. No price is filled in.',
-        'China A-share coverage is not promised. A symbol can be tried. If the source has nothing, that is the result. Stooq is only mapped for plain US tickers and .HK.',
+        'A-shares try Tencent / ifzq first, then Eastmoney. US symbols try Eastmoney, then Yahoo, then Yahoo through the allorigins browser proxy if CORS blocks the direct call; daily bars may still try Stooq. There is no API key and no paid terminal. The broken Tencent US history (for example a 2011 bar and a 2026 bar) is rejected and is not used as a chart series.',
+        'On a block, a timeout, or an unusable series, the page lists each source’s reason. No price is invented, and the desk does not fall back to a teaching lesson by itself. A secondary button can load a lesson if you want one.',
+        'Incomplete bars are dropped. They are not repaired. No price is filled in. Volume is shown only when the feed supplied it. MACD and moving averages are indicators computed from closes, not Chanlun.',
         'Weekly bars on a lesson fold the daily bars by UTC week, not by an exchange calendar. Public timestamps are kept as the source sent them.',
       ],
     },
