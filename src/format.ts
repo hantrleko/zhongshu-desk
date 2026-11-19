@@ -18,6 +18,16 @@ export function formatDay(unix: number): string {
   return `${part.year}-${part.month}-${part.day}`;
 }
 
+/** YYYY-MM-DD with non-breaking hyphens, so a line cannot wrap after the year. */
+export function formatDayNowrap(unix: number): string {
+  return formatDay(unix).replaceAll('-', '‑');
+}
+
+/** Two dates joined by an arrow. Each date stays intact; a line may break at the arrow. */
+export function formatDayRange(start: number, end: number): string {
+  return `${formatDayNowrap(start)} → ${formatDayNowrap(end)}`;
+}
+
 /** Date and time from the bar's unix seconds, kept in UTC. Does not use the clock. */
 export function formatUtcDateTime(unix: number): string {
   const part = utcParts(unix);

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- 默认不再把全部历史装进主图：首次打开或换标的、换周期时，先看最近约 90 根 K 线，价格轴按可见范围缩放，近处的柱体铺满主图。需要看全部历史时，用工具栏里的「看全部」；「全显 / 全隐」仍然只开关图层。
+- 收紧工具栏和图表上方的说明：桌面尽量一行，窄屏第一行放品牌、代码和市场，其余芯片单行横滑。图题下只留一句短说明和一行来源、最后一根与延迟；图例收成细条，并写在「怎么看」里。
+- 右侧行情板和「现在怎样」改成交易终端的密度：等宽数字、右对齐、细分割线，少一层卡片。自选行更紧，选中更明显。品牌去掉衬线和宽字距。绿涨红跌不变。
+
+- The default viewport no longer fits the entire history. On first load, and when a symbol or timeframe is loaded, the chart shows about the last 90 bars and autoscales price to that window, so recent candles fill the pane. “Fit all” shows the full history. “All / None” still only toggle layers.
+- The toolbar and the chrome above the chart are tighter. The desktop bar stays to one row when it can; on a narrow screen the brand, symbol, and market stay on the first row, and the remaining chips scroll sideways as a single row. Under the title, a short stage line and one quiet source / last-bar / delay line remain. The legend is a compact strip and is also listed in “How to read.”
+- The quote board and the “What’s happening” dock use terminal density: tabular numbers, right-aligned values, hairline separators, and fewer nested cards. Watchlist rows are denser, with a stronger selected state. The brand is quieter sans-serif, with little letter-spacing. Green-up / red-down is unchanged.
+
+
 ## 1.2.0
 
 - 用语改成好读的完整句子：保留“笔”“线段”“中枢”这些词，但先用白话解释。右侧「现在怎样」先给一段阅读，再列最近一笔、当前线段和震荡区间的上沿、下沿。图题下有一句短说明；窄屏仍显示，最多三行。

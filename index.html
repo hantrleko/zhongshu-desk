@@ -11,48 +11,57 @@
   <body>
     <a class="skip" href="#hub-list">跳到震荡区间列表</a>
     <header class="toolbar">
-      <div class="brand">
-        <span class="hub-glyph" aria-hidden="true"></span>
-        <h1>中枢台</h1>
+      <div class="toolbar-primary">
+        <div class="brand">
+          <span class="hub-glyph" aria-hidden="true"></span>
+          <h1>中枢台</h1>
+        </div>
+        <form id="quote-form">
+          <label>
+            <span class="visually-hidden" data-i18n="otherSymbol">代码</span>
+            <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="300308 或 AAPL" />
+          </label>
+          <button type="submit" id="quote-submit">读取</button>
+        </form>
+        <div class="market-toggle" role="group" aria-label="Market">
+          <button type="button" id="market-ashare" data-market="ashare" aria-pressed="true">A股</button>
+          <button type="button" id="market-us" data-market="us" aria-pressed="false">美股</button>
+        </div>
       </div>
-      <form id="quote-form">
-        <label>
-          <span class="visually-hidden" data-i18n="otherSymbol">代码</span>
-          <input id="custom-symbol" type="text" name="symbol" autocomplete="off" spellcheck="false" placeholder="300308 或 AAPL" />
-        </label>
-        <button type="submit" id="quote-submit">读取</button>
-      </form>
-      <div class="market-toggle" role="group" aria-label="Market">
-        <button type="button" id="market-ashare" data-market="ashare" aria-pressed="true">A股</button>
-        <button type="button" id="market-us" data-market="us" aria-pressed="false">美股</button>
-      </div>
-      <div class="chip-row" role="group" aria-labelledby="tf-label">
-        <span id="tf-label" class="chip-label" data-i18n="tfGroup">周期</span>
-        <button type="button" class="chip" data-tf="5m" aria-pressed="false">5m</button>
-        <button type="button" class="chip" data-tf="15m" aria-pressed="false">15m</button>
-        <button type="button" class="chip" data-tf="30m" aria-pressed="false">30m</button>
-        <button type="button" class="chip" data-tf="1h" aria-pressed="false">1h</button>
-        <button type="button" class="chip" data-tf="D" aria-pressed="true">D</button>
-        <button type="button" class="chip" data-tf="W" aria-pressed="false">W</button>
-      </div>
-      <div class="chip-row" role="group" aria-labelledby="layer-label">
-        <span id="layer-label" class="chip-label" data-i18n="layerGroup">图层</span>
-        <button type="button" class="chip" id="layer-all">全显</button>
-        <button type="button" class="chip" id="layer-none">全隐</button>
-        <button type="button" class="chip" id="layer-bi" aria-pressed="true" title="笔：相邻高低点连成的一小段走势。">笔</button>
-        <button type="button" class="chip" id="layer-seg" aria-pressed="true" title="线段：由几笔组成的更大一段走势。">线段</button>
-        <button type="button" class="chip" id="layer-zs" aria-pressed="true" title="震荡区间（中枢）：价格来回重叠的区域。">震荡区</button>
-        <button type="button" class="chip" id="layer-bsp" aria-pressed="true" title="买卖点：结构标注，不是下单信号。">买卖点</button>
-        <button type="button" class="chip" id="layer-ma" aria-pressed="false">MA</button>
-      </div>
-      <div class="chip-row" role="group" aria-labelledby="level-label">
-        <span id="level-label" class="chip-label" data-i18n="level">层级</span>
-        <button type="button" class="chip" id="level-bi" aria-pressed="true" title="用“笔”来找震荡区间。">按笔看</button>
-        <button type="button" class="chip" id="level-seg" aria-pressed="false" title="用“线段”来找震荡区间。">按线段看</button>
-      </div>
-      <div class="toolbar-actions">
-        <button type="button" id="methods-open">怎么看</button>
-        <button type="button" id="lang">EN</button>
+      <div class="toolbar-scroll">
+        <div class="chip-row" role="group" aria-labelledby="tf-label">
+          <span id="tf-label" class="chip-label visually-hidden" data-i18n="tfGroup">周期</span>
+          <div class="segmented">
+            <button type="button" class="chip" data-tf="5m" aria-pressed="false">5m</button>
+            <button type="button" class="chip" data-tf="15m" aria-pressed="false">15m</button>
+            <button type="button" class="chip" data-tf="30m" aria-pressed="false">30m</button>
+            <button type="button" class="chip" data-tf="1h" aria-pressed="false">1h</button>
+            <button type="button" class="chip" data-tf="D" aria-pressed="true">D</button>
+            <button type="button" class="chip" data-tf="W" aria-pressed="false">W</button>
+          </div>
+          <button type="button" class="chip" id="fit-all" title="显示全部历史 K 线。">看全部</button>
+        </div>
+        <div class="chip-row" role="group" aria-labelledby="layer-label">
+          <span id="layer-label" class="chip-label visually-hidden" data-i18n="layerGroup">图层</span>
+          <button type="button" class="chip" id="layer-all">全显</button>
+          <button type="button" class="chip" id="layer-none">全隐</button>
+          <button type="button" class="chip" id="layer-bi" aria-pressed="true" title="笔：相邻高低点连成的一小段走势。">笔</button>
+          <button type="button" class="chip" id="layer-seg" aria-pressed="true" title="线段：由几笔组成的更大一段走势。">线段</button>
+          <button type="button" class="chip" id="layer-zs" aria-pressed="true" title="震荡区间（中枢）：价格来回重叠的区域。">震荡区</button>
+          <button type="button" class="chip" id="layer-bsp" aria-pressed="true" title="买卖点：结构标注，不是下单信号。">买卖点</button>
+          <button type="button" class="chip" id="layer-ma" aria-pressed="false">MA</button>
+        </div>
+        <div class="chip-row" role="group" aria-labelledby="level-label">
+          <span id="level-label" class="chip-label visually-hidden" data-i18n="level">层级</span>
+          <div class="segmented">
+            <button type="button" class="chip" id="level-bi" aria-pressed="true" title="用“笔”来找震荡区间。">按笔看</button>
+            <button type="button" class="chip" id="level-seg" aria-pressed="false" title="用“线段”来找震荡区间。">按线段看</button>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" id="methods-open">怎么看</button>
+          <button type="button" id="lang">EN</button>
+        </div>
       </div>
     </header>
     <div class="desk" id="desk">
@@ -62,17 +71,19 @@
       </nav>
       <section class="stage" aria-label="Chart">
         <div class="chart-meta">
-          <h2 id="study-title"></h2>
-          <p id="stage-reading"></p>
-          <p id="study-blurb"></p>
+          <div class="chart-meta-head">
+            <h2 id="study-title"></h2>
+            <p id="stage-reading"></p>
+          </div>
+          <p id="study-blurb" class="visually-hidden"></p>
+          <div class="provenance" id="provenance">
+            <p id="source-line"></p>
+            <p id="timeframe-line"></p>
+            <p id="freshness-line"></p>
+            <p id="level-note"></p>
+          </div>
+          <ul id="chart-legend" class="legend"></ul>
         </div>
-        <div class="provenance" id="provenance">
-          <p id="source-line"></p>
-          <p id="timeframe-line"></p>
-          <p id="freshness-line"></p>
-          <p id="level-note"></p>
-        </div>
-        <ul id="chart-legend" class="legend"></ul>
         <div class="chart-stage">
           <div id="banner" role="status" hidden></div>
           <div id="chart" role="group"></div>
