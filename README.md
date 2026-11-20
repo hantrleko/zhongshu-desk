@@ -66,11 +66,13 @@ VITE_BASE=/your-repo/ npm run build
 
 ### 公开行情
 
-标的里的 AAPL、MSFT、0700.HK，或自己填的代码，会由浏览器直接请求 Yahoo Finance 的图表接口。Yahoo 失败再试 Stooq 的日线 CSV。没有密钥。
+打开页面默认加载 300308（中际旭创）日线。标的框里可以填六位 A 股代码、sh/sz 前缀、.SS/.SZ 美股或港股代码。行情由浏览器直接请求公开接口，没有密钥，也不内置任何数据。
 
-静态页面经常被跨域拦住。超时、空表、HTTP 错误都会写在图上，然后回到当前样例。不完整的 K 线直接丢掉，不改写，也不补价格。
+- **A 股**：先试腾讯 ifzq 的前复权 K 线，失败再试东方财富 push2his，之后才轮到 Yahoo（.SS/.SZ）。日线和周线各取约 800 根；分钟线取约 800 根但受数据源自身覆盖限制，东财分钟线通常只有最近几周。
+- **美股**：先试东方财富（105/106 市场代码），失败依次试 Yahoo Finance 图表接口、allorigins 代理和 Stooq 日线 CSV。allorigins 是第三方代理，请求经过别人的服务器，可用性没有保证；它只是兜底，不是主链路。Yahoo 日线取两年，周线五年，分钟线按接口上限。
+- **港股（.HK）**：走 Yahoo，失败再试 allorigins 和 Stooq。
 
-不承诺沪深 A 股。Stooq 只映射普通美股代码和 `.HK`。时间戳保持来源原样，不换算成交易所时区。
+超时、空表、HTTP 错误都会写在图上，然后回到当前样例。不完整的 K 线直接丢掉，不改写，也不补价格。时间戳保持来源原样，不换算成交易所时区。
 
 ### 算法
 
@@ -78,10 +80,10 @@ VITE_BASE=/your-repo/ npm run build
 
 1. **包含**。从前向后扫。向上合并取较高的高点和较高的低点，向下取较低的高点和较低的低点。只有一根时，由新 K 线定方向。高低都相同，按向下处理。
 2. **分型**。合并后的 K 线上，顶分型的高点和低点都要严格高于左右。相等不算。
-3. **笔**。顶和底的中心至少隔 4 根合并 K 线。端点必须是这段里唯一的极值。同向更极端的分型会把笔延伸过去。
+3. **笔**。顶和底的中心至少隔 4 根合并 K 线。端点只要求是这段区间的极值：区间里不允许出现比它更极端的价位，但允许并列，并列时取后一个分型。同向出现同等或更极端的分型，笔延伸到后一个。反向分型比当前笔的起点更极端时，先尝试取消当前笔、把上一笔延伸到新极值；延伸不成就保留原笔照常配对。某个端点被后续 K 线永久越过、再也无法配笔时会被丢弃，所以任意行情都能把笔算到序列末尾，不会出现后半段无结构。
 4. **线段**。特征序列分型。向上线段看向下笔组成的顶分型，向下线段看底分型。第一、二元素有缺口时，这个分型不结束线段。没有分型就留下未完成线段。不足三笔没有线段。第一段的方向取第一笔的方向。
-5. **中枢**。连续三笔或三段的重叠。ZG 是三高里的最低，ZD 是三低里的最高，必须 ZG > ZD。之后只延伸，不改 ZG、ZD。GG、DD 是全体成员的最高和最低。整笔离开区间，这笔不算进中枢，可以开始下一个。同一级别不共用成员。
-6. **三买 / 三卖**。离开之后，第一段仍然整个停在区间外的反向笔。没有 MACD，所以没有一买、二买。
+5. **中枢**。连续三笔或三段的重叠。ZG 是三高里的最低，ZD 是三低里的最高，必须 ZG > ZD。之后只延伸，不改 ZG、ZD。GG、DD 是全体成员的最高和最低。起点在区间内、终点越出的那一笔仍算延伸成员，GG/DD 会被它拉大；第一笔完全落在区间外才结束中枢，并成为下一中枢的候选。同一级别不共用成员。
+6. **三买 / 三卖**。离开之后，第一段仍然整个停在区间外的反向笔。没有 MACD，所以没有一买、二买。标注落在末笔或未完成线段上时标为待确认，图上用虚线空心框表示。
 
 缠论门派在包含方向、笔的根数、缺口和中枢边界上并不一致。这是一套可以复核的实现，不是「官方缠论」。
 
@@ -157,11 +159,13 @@ Layer switches default to strokes, segments, hubs, and buy/sell labels. The labe
 
 ### Public quotes
 
-AAPL, MSFT, 0700.HK, or a symbol typed into the box, are requested by the browser from the Yahoo Finance chart endpoint. If Yahoo fails, Stooq daily CSV is tried. There is no API key.
+The page opens on 300308 by default. The symbol box accepts six-digit A-share codes, sh/sz prefixes, and .SS/.SZ or .HK tickers. Quotes are requested by the browser from public endpoints. There is no API key and no bundled data.
 
-A static page is often stopped by CORS. A timeout, an empty table, or an HTTP error is written on the chart, and the lesson comes back. Incomplete bars are dropped. They are not rewritten, and no price is filled in.
+- **A-shares**: Tencent ifzq adjusted klines first, then Eastmoney push2his, then Yahoo (.SS/.SZ). Daily and weekly pull about 800 bars each; minute bars pull about 800 but are limited by each source's own coverage — Eastmoney minute history only reaches back a few weeks.
+- **US stocks**: Eastmoney (105/106 market codes) first, then the Yahoo Finance chart endpoint, then the allorigins proxy, then Stooq daily CSV. allorigins is a third-party proxy: requests pass through someone else's servers and availability is not guaranteed. It is a fallback, not the main path. Yahoo requests two years of daily and five years of weekly bars; intraday follows the API limits.
+- **Hong Kong (.HK)**: Yahoo first, then allorigins and Stooq.
 
-China A-shares are not a promised source. Stooq is mapped only for plain US tickers and `.HK`. Timestamps are kept as the source sent them.
+A timeout, an empty table, or an HTTP error is written on the chart, and the lesson comes back. Incomplete bars are dropped. They are not rewritten, and no price is filled in. Timestamps are kept as the source sent them.
 
 ### Algorithm
 
@@ -169,10 +173,10 @@ The engine is `src/engine/`. The in-app methods note states the same rules.
 
 1. **Inclusion.** One forward pass. An up merge keeps the higher high and the higher low. A down merge keeps the lower high and the lower low. With a single bar so far, the incoming bar sets the direction. Equal highs and equal lows count as down.
 2. **Fractals.** On merged bars, a top needs both a strictly higher high and a strictly higher low than each neighbor. Equality does not count.
-3. **Strokes.** Top and bottom centers are at least four merged bars apart. Each endpoint is the unique extreme of the span. A more extreme fractal of the same kind extends the stroke.
+3. **Strokes.** Top and bottom centers are at least four merged bars apart. An endpoint only needs to be an extreme of its span: nothing in the span may be more extreme, ties are allowed, and a tie resolves to the later fractal. A same-kind fractal that is equally or more extreme extends the stroke to the later one. A counter fractal more extreme than the stroke start first tries to cancel the current stroke and extend the previous one to the new extreme; if that fails, the original pairing stands. An endpoint permanently exceeded by later bars and unable to pair is dropped, so strokes always reach the end of the series on any input.
 4. **Segments.** Feature-sequence fractals. An up segment ends on an ungapped top fractal of its down strokes. A down segment ends on a bottom fractal. A gap between the first and second element does not end the segment. If no fractal appears, the tail stays unfinished. Fewer than three strokes produce no segment. The first segment takes the direction of the first stroke.
-5. **Hubs.** The overlap of three consecutive strokes, or three consecutive segments. ZG is the lowest of the three highs. ZD is the highest of the three lows. ZG must be strictly above ZD. Later intersecting swings extend the hub and do not move ZG or ZD. GG and DD are the extreme of every member. A swing that lies entirely outside is not a member and may start the next hub. Same-level hubs do not share members.
-6. **Third-class labels.** After a leave, the first counter swing that stays entirely outside the band. There is no MACD, so there is no first-class or second-class label.
+5. **Hubs.** The overlap of three consecutive strokes, or three consecutive segments. ZG is the lowest of the three highs. ZD is the highest of the three lows. ZG must be strictly above ZD. Later intersecting swings extend the hub and do not move ZG or ZD. GG and DD are the extreme of every member. A stroke that starts inside the band and ends outside still counts as an extending member and widens GG/DD; the first swing lying entirely outside ends the hub and may start the next one. Same-level hubs do not share members.
+6. **Third-class labels.** After a leave, the first counter swing that stays entirely outside the band. There is no MACD, so there is no first-class or second-class label. A label that lands on the final unconfirmed stroke or unfinished segment is marked pending and drawn as a dashed hollow box.
 
 Chan schools do not agree on inclusion direction, stroke length, gaps, or hub edges. This is one implementation that can be checked. It is not “the official Chan.”
 

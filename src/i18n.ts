@@ -374,8 +374,8 @@ const zh: Copy = {
       '公开行情请求失败不会影响已载入主图，也不会把日线冒充分钟线。教学样例仅支持日线及按 UTC 自然周聚合的周线，并明确标注为教学价格。',
     ] },
     { heading: '缠论结构', paragraphs: [
-      '计算顺序为包含处理、分型、笔、特征序列线段及中枢。同层级连续三笔或三段存在严格非零价格重叠时形成中枢；上下沿由核心三笔或三段固定，后续重叠只延伸中枢。',
-      '末笔始终按待确认处理，其端点可能随数据变化。线段确认取决于特征序列；未确认结构以虚线显示。中枢的结构性离开与末根收盘位于中枢之外，是不同判断。',
+      '计算顺序为包含处理、分型、笔、特征序列线段及中枢。同层级连续三笔或三段存在严格非零价格重叠时形成中枢；上下沿由核心三笔或三段固定，后续重叠只延伸中枢。起点在区间内、终点越出的笔仍算延伸成员，GG/DD 会被它拉大；第一笔完全落在区间外才结束中枢。',
+      '笔的端点只要求是所跨区间的极值，并列时取后一个分型；反向分型比当前笔起点更极端时会回溯改写前一笔，端点被后续 K 线永久越过时丢弃，因此任意行情都能算到序列末尾。末笔始终按待确认处理，其端点可能随数据变化。线段确认取决于特征序列；未确认结构以虚线显示。落在末笔或未完成线段上的三买、三卖同样标为待确认，图上用虚线空心框表示。中枢的结构性离开与末根收盘位于中枢之外，是不同判断。',
       '三买、三卖仅是离开中枢后的结构标记，不是下单信号。本站不计算背驰，不提供一买、二买、胜率或收益预测。本实现规则固定可复核，但不代表所有缠论流派。',
     ] },
     { heading: '图表与署名', paragraphs: [
@@ -548,8 +548,8 @@ const en: Copy = {
       'A failed comparison does not affect the primary chart. Daily bars are never relabeled as intraday. Lessons support daily bars and UTC-calendar-week aggregation only, and are labeled as teaching prices.',
     ] },
     { heading: 'Chan structure', paragraphs: [
-      'Processing follows inclusion, fractals, strokes, feature-sequence segments and hubs. A hub requires a strict nonzero overlap across three consecutive swings at the same level. Its boundaries remain fixed; overlapping later swings extend it.',
-      'The final stroke is always provisional and may extend. Segment confirmation depends on the feature sequence. Provisional structure is dashed. A structural departure from a hub is distinct from the latest close lying outside it.',
+      'Processing follows inclusion, fractals, strokes, feature-sequence segments and hubs. A hub requires a strict nonzero overlap across three consecutive swings at the same level. Its boundaries remain fixed; overlapping later swings extend it. A stroke that starts inside the band and ends outside still counts as an extending member and widens GG/DD; the first swing lying entirely outside ends the hub.',
+      'Stroke endpoints only need to be span extremes, and ties resolve to the later fractal. A counter fractal more extreme than the stroke start triggers a tentative rewrite of the previous stroke, and endpoints permanently exceeded by later bars are dropped, so strokes always reach the end of the series. The final stroke is always provisional and may extend. Segment confirmation depends on the feature sequence. Provisional structure is dashed, and third-class marks riding on the unconfirmed tail are drawn as dashed hollow labels. A structural departure from a hub is distinct from the latest close lying outside it.',
       'Third-class buy/sell labels describe structure, not orders. No divergence, first/second-class buys, win rates or return forecasts are calculated. The implementation is reproducible but does not represent every Chan interpretation.',
     ] },
     { heading: 'Chart attribution', paragraphs: [

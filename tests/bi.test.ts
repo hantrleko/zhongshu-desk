@@ -30,10 +30,10 @@ describe('bi', () => {
     expect(canFormBi(bottom, top, bars)).toBe(true);
   });
 
-  it('rejects a tied high', () => {
+  it('accepts a tied high', () => {
     const tied = bars.map((bar) => ({ ...bar }));
     tied[3] = { ...tied[3], high: 22 };
-    expect(canFormBi(bottom, top, tied)).toBe(false);
+    expect(canFormBi(bottom, top, tied)).toBe(true);
   });
 
   it('builds an up stroke between a bottom and a top', () => {

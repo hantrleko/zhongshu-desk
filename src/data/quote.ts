@@ -5,6 +5,10 @@ const SYMBOL = /^[A-Za-z0-9.]{1,15}$/;
 const TWO_YEARS = 2 * 365 * 24 * 3600;
 const TIMEOUT_MS = 8000;
 const PROXY_TIMEOUT_MS = 20000;
+/** Tencent caps near 800 bars: count=800 returns ~801 rows, larger counts degrade to ~640. */
+const TENCENT_HISTORY_BARS = 800;
+/** Eastmoney accepts lmt well above this; 1000 stays inside the verified range. */
+const EASTMONEY_HISTORY_BARS = 1000;
 
 /** Yahoo chart interval and range for one chip. Intraday history on that API is short. */
 export function yahooWindow(timeframe: Timeframe): { interval: string; range: string } {
@@ -548,22 +552,23 @@ async function fetchJson(url: string, fetchImpl: typeof fetch, timeoutMs = TIMEO
 }
 
 export function tencentUrls(tencentCode: string, timeframe: Timeframe): string[] {
+  const count = TENCENT_HISTORY_BARS;
   if (timeframe === 'D') {
     return [
-      `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},day,,,320,qfq`,
-      `https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},day,,,320,qfq`,
+      `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},day,,,${count},qfq`,
+      `https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},day,,,${count},qfq`,
     ];
   }
   if (timeframe === 'W') {
-    return [`https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},week,,,320,qfq`];
+    return [`https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${tencentCode},week,,,${count},qfq`];
   }
   const minutes = timeframe === '5m' ? 'm5' : timeframe === '15m' ? 'm15' : timeframe === '30m' ? 'm30' : 'm60';
-  return [`https://ifzq.gtimg.cn/appstock/app/kline/mkline?param=${tencentCode},${minutes},,320`];
+  return [`https://ifzq.gtimg.cn/appstock/app/kline/mkline?param=${tencentCode},${minutes},,${count}`];
 }
 
 export function eastmoneyUrl(secid: string, timeframe: Timeframe): string {
   const klt = timeframe === 'D' ? 101 : timeframe === 'W' ? 102 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : timeframe === '30m' ? 30 : 60;
-  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${encodeURIComponent(secid)}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=1&end=20500101&lmt=320`;
+  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${encodeURIComponent(secid)}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=1&end=20500101&lmt=${EASTMONEY_HISTORY_BARS}`;
 }
 
 export function yahooUrl(symbol: string, timeframe: Timeframe): string {

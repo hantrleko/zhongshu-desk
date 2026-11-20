@@ -104,6 +104,8 @@ export interface Mark {
   price: number;
   hubId: string;
   level: HubLevel;
+  /** True when the swing carrying the label is still the unconfirmed tail. */
+  pending: boolean;
 }
 
 export interface Analysis {

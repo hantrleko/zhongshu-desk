@@ -885,7 +885,8 @@ export function startDesk(): void {
       const mark = marks.find((item) => item.hubId === hub.id);
       if (mark) {
         const markName = mark.kind === 'buy3' ? ui.buy : ui.sell;
-        button.append(element('div', 'mark-line', `${markName}\u00a0${formatPrice(mark.price)} · ${formatDayNowrap(mark.time)}`));
+        const pending = mark.pending ? ` · ${ui.unconfirmed}` : '';
+        button.append(element('div', 'mark-line', `${markName}\u00a0${formatPrice(mark.price)} · ${formatDayNowrap(mark.time)}${pending}`));
       }
       button.addEventListener('click', () => {
         selectedId = selectedId === hub.id ? null : hub.id;

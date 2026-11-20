@@ -1,8 +1,8 @@
-# Research workstation (1.4.0)
+# Research workstation (1.5.0)
 
 ## Calculation contract
 
-All observations use the last available bar’s `close`, not the quote snapshot’s `last`. The latest bar may still be forming. All window lengths count **bars**, not calendar days. Price input must be finite, positive and valid OHLC with strictly increasing timestamps. No sorting, interpolation, missing-bar repair or synthetic prices are performed.
+All observations use the last available bar’s `close`, not the quote snapshot’s `last`. The latest bar may still be forming. All window lengths count **bars**, not calendar days. Incoming bars are sorted by timestamp and duplicate or non-increasing timestamps are dropped (`keepValidBars`); bars with non-finite or out-of-range OHLC are discarded, not repaired. No interpolation, missing-bar repair or synthetic prices are performed.
 
 - **MA20**: arithmetic mean of the latest 20 closes. Direction is the latest MA20 minus the preceding MA20 (21 bars required). Close > MA20 and direction > 0 is rising; close < MA20 and direction < 0 is falling; all other combinations are mixed. This is a defined indicator classification, not a forecast or a Chan trend classification.
 - **Deviation**: `(last close / MA20 - 1) × 100`.

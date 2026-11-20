@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0
+
+- 修复笔在真实行情上中途停摆：端点允许并列极值（并列取后一个分型），反向分型比当前笔起点更极值时回溯改写前一笔，被后续 K 线永久越过的端点丢弃重试。任意输入都能把笔算到序列末尾，线段、中枢和三买三卖不再缺失。
+- 三买、三卖落在末笔或未完成线段上时标为待确认，图上用虚线空心框表示，列表注明「尚未确认」。
+- 行情历史拉长：腾讯约 800 根、东方财富约 1000 根（此前 320），日线、周线、分钟线同口径。300308 日线现在能算出段中枢。
+- 文档同步新口径：笔的并列极值与回溯规则、中枢成员口径（起点在区间内、终点越出的笔算延伸成员，GG/DD 被它拉大）、待确认标注、数据源链路与 allorigins 代理说明；修正 research-workstation 中 keepValidBars 排序去重的描述。
+- 新增测试：跌破起点后创新高、等价双顶两个合成回归；801 根真实 300308 日线 fixture 断言笔覆盖到末尾；随机游走性质测试锁定端点交替、区间极值与尾部覆盖。
+
+- Fixed strokes stalling mid-series on real quotes: endpoints may now tie (the later fractal wins), a counter fractal more extreme than the stroke start triggers a tentative rewrite of the previous stroke, and endpoints permanently exceeded by later bars are dropped. Strokes now reach the end of the series on any input, so segments, hubs and third-class marks no longer go missing.
+- Third-class marks landing on the final unconfirmed stroke or an unfinished segment are flagged pending and drawn as dashed hollow labels; the hub list notes they are not yet confirmed.
+- Quote history is longer: about 800 bars from Tencent and 1000 from Eastmoney (previously 320), across daily, weekly and intraday. The 300308 daily chart now produces a segment hub.
+- Docs updated to the new rules: tied stroke extremes and backtracking, the hub member convention (a stroke starting inside and ending outside still extends the hub and widens GG/DD), pending marks, the data-source chain and the allorigins proxy caveat; corrected the research-workstation note on keepValidBars sorting and deduplication.
+- New tests: synthetic regressions for a dip below the stroke start followed by a higher high, and equal double tops; an 801-bar real 300308 daily fixture asserting coverage to the tail; a random-walk property test locking endpoint alternation, span extremes and tail coverage.
+
 ## 1.4.0
 
 - 重构为可读性优先的技术研究工作台：明确指定中文无衬线字体（含 Linux Noto Sans CJK SC），取消全局等宽观感；分层工具栏、图表设置弹层及移动端「行情与研判」。

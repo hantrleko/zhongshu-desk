@@ -267,6 +267,7 @@ export class DeskChart {
         price: mark.price,
         label: markChartLabel(mark.kind, input.labels),
         anchor: markAnchor(mark.kind),
+        pending: mark.pending,
       })),
       input.labels,
       input.fontFamily,

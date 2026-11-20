@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findHubs, type Swing } from '../src/engine/hub.ts';
 import { findThirdClass } from '../src/engine/marks.ts';
-import type { Direction } from '../src/engine/types.ts';
+import type { Direction, Segment } from '../src/engine/types.ts';
 
 function swing(index: number, direction: Direction, low: number, high: number): Swing {
   return {
@@ -11,6 +11,23 @@ function swing(index: number, direction: Direction, low: number, high: number): 
     high,
     startTime: 1_700_000_000 + index * 86_400,
     endTime: 1_700_000_000 + (index + 1) * 86_400,
+  };
+}
+
+function segment(index: number, direction: Direction, low: number, high: number, finished: boolean): Segment {
+  return {
+    id: `seg-${index + 1}`,
+    direction,
+    startBi: index * 3,
+    endBi: index * 3 + 2,
+    startTime: 1_700_000_000 + index * 86_400,
+    endTime: 1_700_000_000 + (index + 1) * 86_400,
+    startPrice: low,
+    endPrice: high,
+    low,
+    high,
+    finished,
+    biIds: [],
   };
 }
 
@@ -133,7 +150,7 @@ describe('hubs', () => {
     const hubs = findHubs(held, 'bi');
     const marks = findThirdClass(held, hubs, 'bi');
     expect(marks).toEqual([
-      { kind: 'buy3', time: held[4].endTime, price: 132, hubId: 'bi-hub-1', level: 'bi' },
+      { kind: 'buy3', time: held[4].endTime, price: 132, hubId: 'bi-hub-1', level: 'bi', pending: true },
     ]);
 
     const reentered = [
@@ -158,5 +175,40 @@ describe('hubs', () => {
     const hubs = findHubs(swings, 'bi');
     expect(hubs[0]).toMatchObject({ status: 'left-down', zd: 105, zg: 120 });
     expect(findThirdClass(swings, hubs, 'bi')).toMatchObject([{ kind: 'sell3', price: 99 }]);
+  });
+
+  it('flags a third-class mark pending only while its carrier swing is the unconfirmed tail', () => {
+    const tail = [
+      swing(0, 'up', 100, 130),
+      swing(1, 'down', 110, 130),
+      swing(2, 'up', 110, 125),
+      swing(3, 'up', 130, 150),
+      swing(4, 'down', 132, 150),
+    ];
+    const tailHubs = findHubs(tail, 'bi');
+    expect(findThirdClass(tail, tailHubs, 'bi')[0]?.pending).toBe(true);
+
+    const confirmed = [...tail, swing(5, 'up', 140, 160)];
+    const confirmedHubs = findHubs(confirmed, 'bi');
+    const mark = findThirdClass(confirmed, confirmedHubs, 'bi').find((item) => item.kind === 'buy3');
+    expect(mark).toMatchObject({ price: 132, pending: false });
+  });
+
+  it('treats a finished tail segment as confirmed but an unfinished one as pending', () => {
+    const finishedSwings = [
+      segment(0, 'up', 100, 130, true),
+      segment(1, 'down', 110, 130, true),
+      segment(2, 'up', 110, 125, true),
+      segment(3, 'up', 130, 150, true),
+      segment(4, 'down', 132, 150, true),
+    ];
+    const finishedHubs = findHubs(finishedSwings, 'segment');
+    expect(findThirdClass(finishedSwings, finishedHubs, 'segment')[0]?.pending).toBe(false);
+
+    const unfinishedSwings = finishedSwings.map((item, index) =>
+      index === finishedSwings.length - 1 ? { ...item, finished: false } : item,
+    );
+    const unfinishedHubs = findHubs(unfinishedSwings, 'segment');
+    expect(findThirdClass(unfinishedSwings, unfinishedHubs, 'segment')[0]?.pending).toBe(true);
   });
 });

@@ -27,6 +27,8 @@ export interface DrawnMark {
   label: string;
   /** Sell labels sit above a peak; buy labels sit below a valley. */
   anchor: 'above' | 'below';
+  /** Provisional marks on the unconfirmed tail swing draw hollow and dashed. */
+  pending?: boolean;
 }
 
 export interface ChartLabels {
@@ -59,6 +61,7 @@ interface MediaMark {
   text: string;
   anchor: 'above' | 'below';
   tone?: 'mark' | 'swing';
+  pending?: boolean;
 }
 
 const EMPTY_LABELS: ChartLabels = { latest: '', selected: '', zg: 'ZG', zd: 'ZD', buy: '', sell: '', hub: '', stroke: '', segment: '' };
@@ -153,8 +156,16 @@ class HubRenderer implements IPrimitivePaneRenderer {
         ctx.quadraticCurveTo(boxX, bottom, boxX, bottom - r);
         ctx.lineTo(boxX, boxY + r);
         ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
-        ctx.fill();
+        if (mark.pending) {
+          ctx.fillStyle = 'rgba(7, 8, 10, 0.45)';
+          ctx.fill();
+          ctx.fillStyle = 'rgba(7, 8, 10, 0.9)';
+          ctx.setLineDash([4 * hx, 3 * hx]);
+        } else {
+          ctx.fill();
+        }
         ctx.stroke();
+        ctx.setLineDash([]);
         ctx.fillStyle = mark.tone === 'swing' ? '#dce6fb' : '#f3f4f6';
         ctx.fillText(mark.text, boxX + padX, boxY + padY);
       }
@@ -241,7 +252,7 @@ export class HubPrimitive implements ISeriesPrimitive<Time> {
         const x = scale.timeToCoordinate(mark.time as UTCTimestamp);
         const y = this.series.priceToCoordinate(mark.price);
         if (x === null || y === null) continue;
-        markDots.push({ x, y, text: mark.label, anchor: mark.anchor, tone: 'mark' });
+        markDots.push({ x, y, text: mark.label, anchor: mark.anchor, tone: 'mark', pending: mark.pending });
       }
       for (const mark of this.swings) {
         const x = scale.timeToCoordinate(mark.time as UTCTimestamp);
